@@ -1,4 +1,5 @@
 
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -31,7 +32,13 @@ export default function RootLayout({ children }) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <Navbar />
+        <Suspense
+          fallback={
+            <div className="h-20 w-full bg-[#F7F5EF]" />
+          }
+        >
+          <Navbar />
+        </Suspense>
 
         <main className="flex-1">
           {children}

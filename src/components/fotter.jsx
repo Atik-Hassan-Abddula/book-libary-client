@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 
 import {
@@ -18,6 +18,13 @@ import {
 const Fotter = () => {
     const [email, setEmail] = useState("");
     const [message, setMessage] = useState("");
+
+    // Fix Next.js Blocking Route Error
+    const [currentYear, setCurrentYear] = useState(null);
+
+    useEffect(() => {
+        setCurrentYear(new Date().getFullYear());
+    }, []);
 
     // Quick Links
     const quickLinks = [
@@ -120,7 +127,6 @@ const Fotter = () => {
                                     aria-label={social.name}
                                     className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-gray-300 transition-all duration-300 hover:-translate-y-1 hover:border-[#C59B55] hover:bg-[#C59B55] hover:text-[#102D24]"
                                 >
-
                                     {/* Facebook */}
                                     {social.icon === "facebook" && (
                                         <svg
@@ -147,11 +153,13 @@ const Fotter = () => {
                                                 height="18"
                                                 rx="5"
                                             />
+
                                             <circle
                                                 cx="12"
                                                 cy="12"
                                                 r="4"
                                             />
+
                                             <circle
                                                 cx="17.5"
                                                 cy="6.5"
@@ -172,7 +180,6 @@ const Fotter = () => {
                                             <path d="M5.2 3a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4ZM3.3 9h3.8v12H3.3V9Zm6.1 0H13v1.6h.1A4 4 0 0 1 16.7 8c3.9 0 4.6 2.5 4.6 5.7V21h-3.8v-6.5c0-1.5 0-3.4-2.1-3.4s-2.4 1.6-2.4 3.3V21H9.4V9Z" />
                                         </svg>
                                     )}
-
                                 </a>
                             ))}
 
@@ -192,7 +199,6 @@ const Fotter = () => {
                                     <path d="M18.9 2H22l-6.8 7.8L23.2 22h-6.3L12 13.8 4.9 22H1.7l7.3-8.4L1.2 2h6.5l4.5 7.5L18.9 2Zm-1.1 17.9h1.7L6.7 4H4.9l12.9 15.9Z" />
                                 </svg>
                             </a>
-
                         </div>
                     </div>
 
@@ -338,15 +344,13 @@ const Fotter = () => {
                             )}
                         </div>
                     </div>
-
                 </div>
 
                 {/* Bottom Footer */}
                 <div className="flex flex-col items-center justify-between gap-4 py-7 text-center sm:flex-row sm:text-left">
 
                     <p className="text-xs text-gray-400">
-                        © {new Date().getFullYear()} BookNook. All rights
-                        reserved.
+                        © {currentYear ?? 2026} BookNook. All rights reserved.
                     </p>
 
                     <p className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -375,7 +379,6 @@ const Fotter = () => {
                             Terms & Conditions
                         </Link>
                     </div>
-
                 </div>
             </div>
         </footer>

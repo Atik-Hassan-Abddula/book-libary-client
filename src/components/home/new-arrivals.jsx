@@ -145,15 +145,17 @@ export default function NewArrivals() {
         )}
 
         {/* See All Books */}
-        <div className="mt-10 text-center">
-          <Link
-           href={`/books/${books._id}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-primary px-7 py-3 font-semibold text-primary transition-all hover:bg-primary hover:text-primary-content"
-          >
-            See All Books
-            <ArrowRight size={18} />
-          </Link>
-        </div>
+      
+<div className="mt-10 text-center">
+  <Link
+    href="/books"
+    className="inline-flex items-center gap-2 rounded-lg border border-primary px-7 py-3 font-semibold text-primary transition-all hover:bg-primary hover:text-primary-content"
+  >
+    See All Books
+    <ArrowRight size={18} />
+  </Link>
+</div>
+
       </div>
     </section>
   );
