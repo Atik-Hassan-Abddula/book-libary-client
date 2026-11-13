@@ -3,7 +3,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpen, Loader2 } from "lucide-react";
+import Image from "next/image";
+import {
+  ArrowRight,
+  BookOpen,
+  Loader2,
+} from "lucide-react";
 import { API_URL } from "@/lib/api";
 
 export default function NewArrivals() {
@@ -26,7 +31,9 @@ export default function NewArrivals() {
         const result = await response.json();
 
         if (!result.success) {
-          throw new Error(result.message || "Could not load books");
+          throw new Error(
+            result.message || "Could not load books"
+          );
         }
 
         setBooks(result.data || []);
@@ -84,8 +91,15 @@ export default function NewArrivals() {
         {/* Empty State */}
         {!loading && !error && books.length === 0 && (
           <div className="rounded-xl border border-base-300 p-10 text-center">
-            <BookOpen className="mx-auto mb-3 text-base-content/40" size={40} />
-            <h3 className="text-xl font-semibold">No Books Yet</h3>
+            <BookOpen
+              className="mx-auto mb-3 text-base-content/40"
+              size={40}
+            />
+
+            <h3 className="text-xl font-semibold">
+              No Books Yet
+            </h3>
+
             <p className="mt-2 text-base-content/60">
               New books will appear here when they are added.
             </p>
@@ -103,18 +117,25 @@ export default function NewArrivals() {
                 {/* Book Image */}
                 <div className="relative h-64 overflow-hidden bg-base-200">
                   {book.imageUrl || book.image ? (
-                    <img
+                    <Image
                       src={book.imageUrl || book.image}
-                      alt={book.title}
+                      alt={book.title || "Book cover"}
+                      width={400}
+                      height={500}
+                      unoptimized
                       className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center">
-                      <BookOpen size={60} className="text-base-content/30" />
+                      <BookOpen
+                        size={60}
+                        className="text-base-content/30"
+                      />
                     </div>
                   )}
 
-                  <span className="absolute left-4 top-4 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-content">
+                  {/* Category Badge */}
+                  <span className="absolute left-4 top-4 rounded-full bg-[#14532D] px-3 py-1 text-xs font-semibold text-white shadow-md">
                     {book.category || "Others"}
                   </span>
                 </div>
@@ -132,10 +153,14 @@ export default function NewArrivals() {
                   <div className="mt-5 border-t border-base-300 pt-4">
                     <Link
                       href={`/books/${book._id}`}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-content transition-colors hover:bg-primary/90"
+                      className="group/btn flex w-full items-center justify-center gap-2 rounded-lg bg-[#14532D] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-green-900/10 transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#D4A853] hover:text-[#14251B] hover:shadow-lg"
                     >
                       View Details
-                      <ArrowRight size={17} />
+
+                      <ArrowRight
+                        size={17}
+                        className="transition-transform duration-300 group-hover/btn:translate-x-1"
+                      />
                     </Link>
                   </div>
                 </div>
@@ -144,17 +169,20 @@ export default function NewArrivals() {
           </div>
         )}
 
-        {/* See All Books */}
-      
-<div className="mt-10 text-center">
-  <Link
-    href="/books"
-    className="inline-flex items-center gap-2 rounded-lg border border-primary px-7 py-3 font-semibold text-primary transition-all hover:bg-primary hover:text-primary-content"
-  >
-    See All Books
-    <ArrowRight size={18} />
-  </Link>
-</div>
+        {/* See All Books Button */}
+        <div className="mt-10 text-center">
+          <Link
+            href="/books"
+            className="group inline-flex items-center gap-2 rounded-xl border-2 border-[#14532D] bg-[#14532D] px-8 py-3.5 font-semibold text-white shadow-md shadow-green-900/10 transition-all duration-300 hover:-translate-y-1 hover:border-[#D4A853] hover:bg-[#D4A853] hover:text-[#14251B] hover:shadow-lg"
+          >
+            See All Books
+
+            <ArrowRight
+              size={18}
+              className="transition-transform duration-300 group-hover:translate-x-1"
+            />
+          </Link>
+        </div>
 
       </div>
     </section>

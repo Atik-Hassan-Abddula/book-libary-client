@@ -79,6 +79,9 @@ const categories = [
   },
 ];
 
+const primaryButton =
+  "group inline-flex items-center justify-center gap-2 rounded-xl border-2 border-[#14532D] bg-[#14532D] px-7 py-3.5 font-semibold text-white shadow-md shadow-green-900/10 transition-all duration-300 hover:-translate-y-1 hover:border-[#D4A853] hover:bg-[#D4A853] hover:text-[#14251B] hover:shadow-lg";
+
 export default function ExtraSections() {
   return (
     <>
@@ -86,7 +89,7 @@ export default function ExtraSections() {
       <section className="bg-base-200/50 px-4 py-20 md:px-8 lg:px-12">
         <div className="mx-auto max-w-7xl">
           <div className="mx-auto mb-14 max-w-2xl text-center">
-            <span className="mb-3 inline-block rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
+            <span className="mb-3 inline-block rounded-full border border-[#D4A853]/30 bg-[#D4A853]/10 px-4 py-2 text-sm font-semibold text-[#A77925]">
               Simple & Easy
             </span>
 
@@ -100,6 +103,7 @@ export default function ExtraSections() {
             </p>
           </div>
 
+          {/* Borrowing Steps */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {borrowingSteps.map((step) => {
               const Icon = step.icon;
@@ -107,14 +111,14 @@ export default function ExtraSections() {
               return (
                 <div
                   key={step.number}
-                  className="relative rounded-2xl border border-base-300 bg-base-100 p-7 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl"
+                  className="group relative rounded-2xl border border-base-300 bg-base-100 p-7 transition-all duration-300 hover:-translate-y-2 hover:border-[#D4A853]/60 hover:shadow-xl"
                 >
                   <div className="mb-6 flex items-center justify-between">
-                    <div className="flex size-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <div className="flex size-14 items-center justify-center rounded-xl bg-[#14532D]/10 text-[#14532D] transition-all duration-300 group-hover:bg-[#D4A853] group-hover:text-[#14251B]">
                       <Icon size={27} />
                     </div>
 
-                    <span className="text-3xl font-black text-base-content/10">
+                    <span className="text-3xl font-black text-base-content/10 transition-colors group-hover:text-[#D4A853]/40">
                       {step.number}
                     </span>
                   </div>
@@ -131,13 +135,14 @@ export default function ExtraSections() {
             })}
           </div>
 
+          {/* Start Exploring Button */}
           <div className="mt-10 text-center">
-            <Link
-              href="/books"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-7 py-3 font-semibold text-primary-content transition hover:opacity-90"
-            >
+            <Link href="/books" className={primaryButton}>
               Start Exploring
-              <ArrowRight size={18} />
+              <ArrowRight
+                size={18}
+                className="transition-transform duration-300 group-hover:translate-x-1"
+              />
             </Link>
           </div>
         </div>
@@ -148,7 +153,7 @@ export default function ExtraSections() {
         <div className="mx-auto max-w-7xl">
           <div className="mb-12 flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
-              <span className="mb-3 inline-block rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
+              <span className="mb-3 inline-block rounded-full border border-[#D4A853]/30 bg-[#D4A853]/10 px-4 py-2 text-sm font-semibold text-[#A77925]">
                 Find Your Interest
               </span>
 
@@ -164,13 +169,17 @@ export default function ExtraSections() {
 
             <Link
               href="/books"
-              className="inline-flex items-center gap-2 font-semibold text-primary hover:gap-3"
+              className="group inline-flex items-center gap-2 font-semibold text-[#14532D] transition-colors hover:text-[#B58A38]"
             >
               Browse All Books
-              <ArrowRight size={18} />
+              <ArrowRight
+                size={18}
+                className="transition-transform duration-300 group-hover:translate-x-1"
+              />
             </Link>
           </div>
 
+          {/* Category Cards */}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
             {categories.map((category) => {
               const Icon = category.icon;
@@ -179,10 +188,10 @@ export default function ExtraSections() {
                 <Link
                   key={category.name}
                   href="/books"
-                  className="group rounded-2xl border border-base-300 bg-base-100 p-6 transition-all duration-300 hover:-translate-y-2 hover:border-primary/40 hover:shadow-lg"
+                  className="group rounded-2xl border border-base-300 bg-base-100 p-6 transition-all duration-300 hover:-translate-y-2 hover:border-[#D4A853]/60 hover:shadow-lg"
                 >
                   <div
-                    className={`mb-6 flex size-14 items-center justify-center rounded-xl ${category.color}`}
+                    className={`mb-6 flex size-14 items-center justify-center rounded-xl ${category.color} transition-all duration-300 group-hover:bg-[#D4A853] group-hover:text-[#14251B]`}
                   >
                     <Icon size={28} />
                   </div>
@@ -195,11 +204,11 @@ export default function ExtraSections() {
                     {category.description}
                   </p>
 
-                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                  <span className="inline-flex items-center gap-2 text-sm font-semibold text-[#14532D] transition-colors group-hover:text-[#B58A38]">
                     Explore
                     <ArrowRight
                       size={16}
-                      className="transition-transform group-hover:translate-x-1"
+                      className="transition-transform duration-300 group-hover:translate-x-1"
                     />
                   </span>
                 </Link>
@@ -207,12 +216,18 @@ export default function ExtraSections() {
             })}
           </div>
 
-          <div className="mt-12 flex flex-col items-center gap-3 rounded-2xl bg-primary/5 p-8 text-center sm:flex-row sm:justify-center">
-            <CheckCircle2 className="text-primary" size={25} />
+          {/* Bottom Highlight */}
+          <div className="mt-12 flex flex-col items-center gap-3 rounded-2xl border border-[#D4A853]/20 bg-[#14532D]/5 p-8 text-center sm:flex-row sm:justify-center">
+            <CheckCircle2 className="shrink-0 text-[#14532D]" size={25} />
+
             <p className="font-medium text-base-content">
               Every great reading journey starts with one book.
             </p>
-            <BookMarked className="hidden text-primary sm:block" size={25} />
+
+            <BookMarked
+              className="hidden shrink-0 text-[#B58A38] sm:block"
+              size={25}
+            />
           </div>
         </div>
       </section>

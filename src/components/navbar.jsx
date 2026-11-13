@@ -1,354 +1,444 @@
 
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+
 import {
-    BookOpen,
-    Menu,
-    X,
-    Sun,
-    Moon,
-    ChevronDown,
-    UserRound,
-    LogOut,
-    Library,
-    BookPlus,
-    Bookmark,
-    Home,
-    BookMarked,
-    LogIn,
-    UserPlus,
+  BookOpen,
+  Menu,
+  X,
+  ChevronDown,
+  UserRound,
+  LogOut,
+  Loader2,
 } from "lucide-react";
 
-const Navbar = () => {
-    const pathname = usePathname();
+import { toast } from "react-toastify";
+import { authClient } from "@/lib/auth-client";
 
-    // Temporary authentication state
-    // Replace with Better Auth session later
-    const [user, setUser] = useState(null);
+const publicLinks = [
+  {
+    name: "Home",
+    href: "/",
+  },
+  {
+    name: "All Books",
+    href: "/books",
+  },
+];
 
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [isDark, setIsDark] = useState(false);
+const privateLinks = [
+  {
+    name: "Add Book",
+    href: "/add-book",
+  },
+  {
+    name: "My Books",
+    href: "/my-books",
+  },
+  {
+    name: "My Borrows",
+    href: "/my-borrows",
+  },
+];
 
-    const navLinks = [
-        {
-            name: "Home",
-            href: "/",
-            icon: Home,
-            public: true,
-        },
-        {
-            name: "All Books",
-            href: "/books",
-            icon: Library,
-            public: true,
-        },
-        {
-            name: "Add Book",
-            href: "/add-book",
-            icon: BookPlus,
-            private: true,
-        },
-        {
-            name: "My Books",
-            href: "/my-books",
-            icon: Bookmark,
-            private: true,
-        },
-        {
-            name: "My Borrows",
-            href: "/my-borrows",
-            icon: BookMarked,
-            private: true,
-        },
-    ];
+export default function Navbar() {
+  const router = useRouter();
+  const pathname = usePathname();
 
-    const isActive = (href) => {
-        if (href === "/") return pathname === "/";
-        return pathname === href || pathname.startsWith(`${href}/`);
+  // Better Auth Session
+  const { data: session, isPending } = authClient.useSession();
+
+  const user = session?.user;
+  const isLoggedIn = Boolean(user);
+
+  // States
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  // Separate refs for desktop and mobile dropdowns
+  const desktopProfileRef = useRef(null);
+  const mobileProfileRef = useRef(null);
+
+  // Conditional Navigation Links
+  const navLinks = isLoggedIn
+    ? [...publicLinks, ...privateLinks]
+    : publicLinks;
+
+  // Close menus after route changes
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setProfileOpen(false);
+  }, [pathname]);
+
+  // Close profile dropdown on outside click and Escape
+  useEffect(() => {
+    function handleClickOutside(event) {
+      const clickedInsideDesktop =
+        desktopProfileRef.current?.contains(event.target);
+
+      const clickedInsideMobile =
+        mobileProfileRef.current?.contains(event.target);
+
+      if (!clickedInsideDesktop && !clickedInsideMobile) {
+        setProfileOpen(false);
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key === "Escape") {
+        setProfileOpen(false);
+        setMobileMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
     };
+  }, []);
 
-    const handleLogout = async () => {
-        try {
-            // TODO: Connect Better Auth signOut here
-            setUser(null);
-            setIsProfileOpen(false);
-            setIsMenuOpen(false);
-        } catch (error) {
-            console.error("Logout failed:", error);
-        }
-    };
+  // Logout Handler
+  const handleSignOut = async () => {
+    if (loggingOut) return;
 
-    const toggleTheme = () => {
-        setIsDark((prev) => !prev);
-        document.documentElement.classList.toggle("dark");
-    };
+    try {
+      setLoggingOut(true);
 
-    const visibleLinks = navLinks.filter(
-        (link) => link.public || (link.private && user)
-    );
+      const { error } = await authClient.signOut();
 
-    return (
-        <header className="sticky top-0 z-50 w-full border-b border-[#174C3C]/10 bg-[#F7F5EF]/95 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#101C18]/95">
-            <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      if (error) {
+        throw new Error(error.message || "Logout failed!");
+      }
 
-                {/* Logo */}
+      setProfileOpen(false);
+      setMobileMenuOpen(false);
+
+      toast.success("Logged out successfully!");
+
+      router.replace("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout Error:", error);
+
+      toast.error(error.message || "Something went wrong!");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  // Active Link Checker
+  const isActiveLink = (href) => {
+    if (href === "/") {
+      return pathname === "/";
+    }
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
+  // Navigation Links
+  const renderNavLinks = (mobile = false) => (
+    <>
+      {navLinks.map((link) => {
+        const active = isActiveLink(link.href);
+
+        return (
+          <Link
+            key={link.href}
+            href={link.href}
+            onClick={() => {
+              if (mobile) {
+                setMobileMenuOpen(false);
+              }
+            }}
+            className={`relative rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-300 ${
+              active
+                ? "bg-[#14532D]/10 text-[#14532D]"
+                : "text-gray-700 hover:bg-[#14532D]/10 hover:text-[#14532D]"
+            }`}
+          >
+            {link.name}
+          </Link>
+        );
+      })}
+    </>
+  );
+
+  // User Avatar
+  const renderUserAvatar = (size = "h-9 w-9") => (
+    user?.image ? (
+      <img
+        src={user.image}
+        alt={user.name || "User"}
+        className={`${size} rounded-full object-cover`}
+      />
+    ) : (
+      <div
+        className={`${size} flex items-center justify-center rounded-full bg-[#14532D] font-bold text-white`}
+      >
+        {user?.name?.charAt(0)?.toUpperCase() || "U"}
+      </div>
+    )
+  );
+
+  // Profile Dropdown
+  const renderProfileDropdown = () => (
+    <div className="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
+      <div className="border-b border-gray-100 bg-[#F7F5EF] p-4">
+        <p className="truncate font-bold text-[#14532D]">
+          {user?.name || "BookNook User"}
+        </p>
+
+        <p className="mt-1 truncate text-xs text-gray-500">
+          {user?.email}
+        </p>
+      </div>
+
+      <div className="p-2">
+        <Link
+          href="/profile"
+          onClick={() => setProfileOpen(false)}
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 hover:text-[#14532D]"
+        >
+          <UserRound size={18} />
+          My Profile
+        </Link>
+
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={loggingOut}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loggingOut ? (
+            <Loader2 size={18} className="animate-spin" />
+          ) : (
+            <LogOut size={18} />
+          )}
+
+          {loggingOut ? "Signing Out..." : "Logout"}
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-[#F7F5EF]/95 shadow-sm backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+
+        {/* Logo */}
+        <Link
+          href="/"
+          className="flex shrink-0 items-center gap-2"
+        >
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#14532D] text-white shadow-md">
+            <BookOpen size={25} />
+          </div>
+
+          <div>
+            <h1 className="text-xl font-extrabold tracking-tight text-[#14532D] sm:text-2xl">
+              BookNook
+            </h1>
+
+            <p className="text-[10px] font-medium tracking-widest text-gray-500">
+              YOUR ONLINE LIBRARY
+            </p>
+          </div>
+        </Link>
+
+        {/* Desktop Navigation */}
+        <nav className="hidden items-center gap-1 lg:flex">
+          {renderNavLinks()}
+        </nav>
+
+        {/* Desktop Authentication */}
+        <div className="hidden items-center gap-3 lg:flex">
+
+          {/* Logged Out */}
+          {!isPending && !isLoggedIn && (
+            <>
+              <Link
+                href="/login"
+                className="rounded-lg border border-[#14532D] px-5 py-2.5 text-sm font-semibold text-[#14532D] transition-all duration-300 hover:bg-[#14532D] hover:text-white"
+              >
+                Login
+              </Link>
+
+              <Link
+                href="/register"
+                className="rounded-lg bg-[#14532D] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:bg-[#D4A853] hover:text-[#14251B]"
+              >
+                Register
+              </Link>
+            </>
+          )}
+
+          {/* Logged In */}
+          {!isPending && isLoggedIn && (
+            <div
+              className="relative"
+              ref={desktopProfileRef}
+            >
+              <button
+                type="button"
+                onClick={() => setProfileOpen(!profileOpen)}
+                aria-label="Open user menu"
+                aria-expanded={profileOpen}
+                className="flex items-center gap-2 rounded-full border border-gray-200 bg-white p-1.5 pr-3 transition hover:border-[#14532D]"
+              >
+                {renderUserAvatar()}
+
+                <span className="max-w-24 truncate text-sm font-semibold text-gray-700">
+                  {user?.name || "Account"}
+                </span>
+
+                <ChevronDown
+                  size={16}
+                  className={`text-gray-500 transition-transform ${
+                    profileOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {profileOpen && renderProfileDropdown()}
+            </div>
+          )}
+
+          {/* Session Loading */}
+          {isPending && (
+            <Loader2
+              className="animate-spin text-[#14532D]"
+              size={22}
+            />
+          )}
+        </div>
+
+        {/* Mobile Actions */}
+        <div className="flex items-center gap-2 lg:hidden">
+
+          {/* Mobile User Profile */}
+          {!isPending && isLoggedIn && (
+            <div
+              className="relative"
+              ref={mobileProfileRef}
+            >
+              <button
+                type="button"
+                onClick={() => setProfileOpen(!profileOpen)}
+                aria-label="Open user menu"
+                aria-expanded={profileOpen}
+                className="rounded-full border-2 border-[#14532D] p-0.5"
+              >
+                {renderUserAvatar()}
+              </button>
+
+              {profileOpen && renderProfileDropdown()}
+            </div>
+          )}
+
+          {/* Mobile Session Loading */}
+          {isPending && (
+            <Loader2
+              className="animate-spin text-[#14532D]"
+              size={21}
+            />
+          )}
+
+          {/* Hamburger Button */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={
+              mobileMenuOpen ? "Close menu" : "Open menu"
+            }
+            aria-expanded={mobileMenuOpen}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-[#14532D] transition hover:bg-[#14532D]/10"
+          >
+            {mobileMenuOpen ? (
+              <X size={26} />
+            ) : (
+              <Menu size={26} />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Navigation Menu */}
+      <div
+        className={`overflow-hidden border-t border-gray-200 bg-[#F7F5EF] transition-all duration-300 lg:hidden ${
+          mobileMenuOpen
+            ? "max-h-[600px] opacity-100"
+            : "max-h-0 border-t-0 opacity-0"
+        }`}
+      >
+        <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
+
+          {renderNavLinks(true)}
+
+          <div className="mt-3 border-t border-gray-200 pt-4">
+
+            {/* Mobile Logged Out */}
+            {!isPending && !isLoggedIn && (
+              <div className="flex gap-3">
                 <Link
-                    href="/"
-                    className="group flex shrink-0 items-center gap-2.5"
-                    onClick={() => setIsMenuOpen(false)}
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 rounded-lg border border-[#14532D] px-4 py-2.5 text-center text-sm font-semibold text-[#14532D] transition hover:bg-[#14532D] hover:text-white"
                 >
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#174C3C] text-white shadow-md transition-transform duration-300 group-hover:rotate-[-5deg]">
-                        <BookOpen size={25} strokeWidth={2.2} />
-                    </div>
-
-                    <div className="flex flex-col">
-                        <span className="text-2xl font-bold tracking-tight text-[#174C3C] dark:text-[#E8D9B5]">
-                            Book<span className="text-[#C59B55]">Nook</span>
-                        </span>
-                        <span className="hidden text-[9px] font-medium uppercase tracking-[2.5px] text-gray-500 sm:block dark:text-gray-400">
-                            Your Reading Corner
-                        </span>
-                    </div>
+                  Login
                 </Link>
 
-                {/* Desktop Navigation */}
-                <div className="hidden items-center gap-1 lg:flex">
-                    {visibleLinks.map((link) => {
-                        const Icon = link.icon;
+                <Link
+                  href="/register"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 rounded-lg bg-[#14532D] px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-[#D4A853] hover:text-[#14251B]"
+                >
+                  Register
+                </Link>
+              </div>
+            )}
 
-                        return (
-                            <Link
-                                key={link.href}
-                                href={link.href}
-                                className={`relative flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
-                                    isActive(link.href)
-                                        ? "bg-[#174C3C]/10 text-[#174C3C] dark:bg-[#C59B55]/10 dark:text-[#E8D9B5]"
-                                        : "text-gray-600 hover:bg-[#174C3C]/5 hover:text-[#174C3C] dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-[#E8D9B5]"
-                                }`}
-                            >
-                                <Icon size={16} />
-                                {link.name}
+            {/* Mobile Logged In */}
+            {!isPending && isLoggedIn && (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-[#14532D]">
+                    {user?.name || "BookNook User"}
+                  </p>
 
-                                {isActive(link.href) && (
-                                    <span className="absolute bottom-0 left-1/2 h-0.5 w-5 -translate-x-1/2 rounded-full bg-[#C59B55]" />
-                                )}
-                            </Link>
-                        );
-                    })}
+                  <p className="truncate text-xs text-gray-500">
+                    {user?.email}
+                  </p>
                 </div>
 
-                {/* Right Side Actions */}
-                <div className="hidden items-center gap-3 lg:flex">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={loggingOut}
+                  className="flex shrink-0 items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {loggingOut ? (
+                    <Loader2
+                      size={17}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <LogOut size={17} />
+                  )}
 
-                    {/* Theme Toggle */}
-                    <button
-                        onClick={toggleTheme}
-                        aria-label="Toggle theme"
-                        className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-600 transition hover:bg-[#174C3C]/10 hover:text-[#174C3C] dark:border-gray-700 dark:text-gray-300 dark:hover:text-[#E8D9B5]"
-                    >
-                        {isDark ? <Sun size={19} /> : <Moon size={19} />}
-                    </button>
-
-                    {!user ? (
-                        <>
-                            <Link
-                                href="/login"
-                                className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-[#174C3C] transition hover:bg-[#174C3C]/10 dark:text-[#E8D9B5]"
-                            >
-                                <LogIn size={17} />
-                                Login
-                            </Link>
-
-                            <Link
-                                href="/register"
-                                className="flex items-center gap-2 rounded-lg bg-[#174C3C] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#10392D] hover:shadow-lg dark:bg-[#C59B55] dark:text-[#14231D]"
-                            >
-                                <UserPlus size={17} />
-                                Register
-                            </Link>
-                        </>
-                    ) : (
-                        /* User Profile Dropdown */
-                        <div className="relative">
-                            <button
-                                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                                className="flex items-center gap-2 rounded-full border border-gray-200 p-1.5 pr-3 transition hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-white/5"
-                            >
-                                {user.image ? (
-                                    <Image
-                                        src={user.image}
-                                        alt={user.name}
-                                        width={36}
-                                        height={36}
-                                        className="h-9 w-9 rounded-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#174C3C] text-white">
-                                        <UserRound size={19} />
-                                    </div>
-                                )}
-
-                                <span className="max-w-24 truncate text-sm font-semibold text-gray-700 dark:text-gray-200">
-                                    {user.name}
-                                </span>
-
-                                <ChevronDown size={16} />
-                            </button>
-
-                            {isProfileOpen && (
-                                <div className="absolute right-0 top-14 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white p-2 shadow-xl dark:border-gray-700 dark:bg-[#172720]">
-                                    <div className="border-b border-gray-100 px-3 py-3 dark:border-gray-700">
-                                        <p className="font-semibold text-gray-800 dark:text-white">
-                                            {user.name}
-                                        </p>
-                                        <p className="truncate text-xs text-gray-500 dark:text-gray-400">
-                                            {user.email}
-                                        </p>
-                                    </div>
-
-                                    <Link
-                                        href="/profile"
-                                        onClick={() => setIsProfileOpen(false)}
-                                        className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/5"
-                                    >
-                                        <UserRound size={17} />
-                                        My Profile
-                                    </Link>
-
-                                    <button
-                                        onClick={handleLogout}
-                                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                                    >
-                                        <LogOut size={17} />
-                                        Logout
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Mobile Actions */}
-                <div className="flex items-center gap-2 lg:hidden">
-                    <button
-                        onClick={toggleTheme}
-                        aria-label="Toggle theme"
-                        className="flex h-10 w-10 items-center justify-center rounded-full text-[#174C3C] hover:bg-[#174C3C]/10 dark:text-[#E8D9B5]"
-                    >
-                        {isDark ? <Sun size={20} /> : <Moon size={20} />}
-                    </button>
-
-                    <button
-                        onClick={() => setIsMenuOpen(!isMenuOpen)}
-                        aria-label={isMenuOpen ? "Close menu" : "Open menu"}
-                        className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#174C3C] text-white transition hover:bg-[#10392D]"
-                    >
-                        {isMenuOpen ? <X size={22} /> : <Menu size={22} />}
-                    </button>
-                </div>
-            </nav>
-
-            {/* Mobile Menu */}
-            <div
-                className={`overflow-hidden border-t border-[#174C3C]/10 bg-[#F7F5EF] transition-all duration-300 ease-in-out dark:border-white/10 dark:bg-[#101C18] lg:hidden ${
-                    isMenuOpen
-                        ? "max-h-[650px] opacity-100"
-                        : "max-h-0 border-transparent opacity-0"
-                }`}
-            >
-                <div className="mx-auto max-w-7xl space-y-2 px-4 py-5 sm:px-6">
-
-                    {visibleLinks.map((link) => {
-                        const Icon = link.icon;
-
-                        return (
-                            <Link
-                                key={link.href}
-                                href={link.href}
-                                onClick={() => setIsMenuOpen(false)}
-                                className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${
-                                    isActive(link.href)
-                                        ? "bg-[#174C3C] text-white dark:bg-[#C59B55] dark:text-[#14231D]"
-                                        : "text-gray-700 hover:bg-[#174C3C]/10 dark:text-gray-200 dark:hover:bg-white/5"
-                                }`}
-                            >
-                                <Icon size={19} />
-                                {link.name}
-                            </Link>
-                        );
-                    })}
-
-                    {!user ? (
-                        <div className="grid grid-cols-2 gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
-                            <Link
-                                href="/login"
-                                onClick={() => setIsMenuOpen(false)}
-                                className="flex items-center justify-center gap-2 rounded-lg border border-[#174C3C] py-3 text-sm font-semibold text-[#174C3C] dark:border-[#C59B55] dark:text-[#E8D9B5]"
-                            >
-                                <LogIn size={17} />
-                                Login
-                            </Link>
-
-                            <Link
-                                href="/register"
-                                onClick={() => setIsMenuOpen(false)}
-                                className="flex items-center justify-center gap-2 rounded-lg bg-[#174C3C] py-3 text-sm font-semibold text-white dark:bg-[#C59B55] dark:text-[#14231D]"
-                            >
-                                <UserPlus size={17} />
-                                Register
-                            </Link>
-                        </div>
-                    ) : (
-                        <div className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-700">
-                            <div className="flex items-center gap-3 px-3">
-                                {user.image ? (
-                                    <Image
-                                        src={user.image}
-                                        alt={user.name}
-                                        width={42}
-                                        height={42}
-                                        className="h-11 w-11 rounded-full object-cover"
-                                    />
-                                ) : (
-                                    <UserRound size={30} />
-                                )}
-                                <div>
-                                    <p className="font-semibold text-gray-800 dark:text-white">
-                                        {user.name}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                        {user.email}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <Link
-                                href="/profile"
-                                onClick={() => setIsMenuOpen(false)}
-                                className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/5"
-                            >
-                                <UserRound size={18} />
-                                My Profile
-                            </Link>
-
-                            <button
-                                onClick={handleLogout}
-                                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10"
-                            >
-                                <LogOut size={18} />
-                                Logout
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </header>
-    );
-};
-
-export default Navbar;
+                  {loggingOut ? "Signing Out..." : "Logout"}
+                </button>
+              </div>
+            )}
+          </div>
+        </nav>
+      </div>
+    </header>
+  );
+}
