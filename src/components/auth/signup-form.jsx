@@ -11,6 +11,17 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Sparkles,
+  ArrowRight,
+  Library,
+  BookMarked,
+  UserRound,
+  Mail,
+  ImagePlus,
+  Check,
+  X,
+  ShieldCheck,
+  BookCopy,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -42,6 +53,32 @@ export default function SignupForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Live Password Requirements
+  const passwordRequirements = [
+    {
+      label: "At least 8 characters",
+      valid: formData.password.length >= 8,
+    },
+    {
+      label: "One uppercase letter (A-Z)",
+      valid: /[A-Z]/.test(formData.password),
+    },
+    {
+      label: "One lowercase letter (a-z)",
+      valid: /[a-z]/.test(formData.password),
+    },
+    {
+      label: "Maximum 128 characters",
+      valid:
+        formData.password.length > 0 &&
+        formData.password.length <= 128,
+    },
+  ];
+
+  const allRequirementsMet = passwordRequirements.every(
+    (requirement) => requirement.valid
+  );
+
   // Handle Input Change
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -50,6 +87,8 @@ export default function SignupForm() {
       ...prev,
       [name]: value,
     }));
+
+    if (error) setError("");
   };
 
   // Handle Email Signup
@@ -57,18 +96,14 @@ export default function SignupForm() {
     e.preventDefault();
     setError("");
 
-    // Get Form Data
     const formDataObject = new FormData(e.currentTarget);
 
-    // Convert FormData to JavaScript Object
     const userData = Object.fromEntries(
       formDataObject.entries()
     );
 
-    // Destructure User Information
     const { name, email, image, password } = userData;
 
-    // Password Validation
     if (!/[A-Z]/.test(password)) {
       setError(
         "Password must contain at least one uppercase letter."
@@ -109,9 +144,7 @@ export default function SignupForm() {
       });
 
       if (error) {
-        setError(
-          error.message || "Registration failed."
-        );
+        setError(error.message || "Registration failed.");
         return;
       }
 
@@ -119,14 +152,10 @@ export default function SignupForm() {
 
       router.push("/");
       router.refresh();
-
     } catch (err) {
       console.error("Signup Error:", err);
 
-      setError(
-        err.message || "Something went wrong."
-      );
-
+      setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -144,250 +173,488 @@ export default function SignupForm() {
       });
 
       if (error) {
-        setError(
-          error.message || "Google signup failed."
-        );
+        setError(error.message || "Google signup failed.");
         setGoogleLoading(false);
       }
-
     } catch (err) {
       console.error("Google Signup Error:", err);
 
-      setError(
-        err.message || "Google signup failed."
-      );
-
+      setError(err.message || "Google signup failed.");
       setGoogleLoading(false);
     }
   };
 
   return (
-    <Card className="w-full max-w-md border shadow-xl">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F5F7F2] px-4 py-8 sm:px-6 lg:py-12">
 
-      {/* Header */}
-      <CardHeader className="space-y-3 text-center">
+      {/* Background Decorations */}
+      <div className="pointer-events-none absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full bg-emerald-200/40 blur-[100px]" />
+      <div className="pointer-events-none absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-amber-200/40 blur-[100px]" />
 
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-          <BookOpen size={30} />
-        </div>
+      <div className="pointer-events-none absolute left-[12%] top-[20%] h-20 w-20 rounded-3xl border border-emerald-200/50 rotate-12" />
+      <div className="pointer-events-none absolute bottom-[15%] right-[10%] h-24 w-24 rounded-full border border-amber-300/40" />
 
-        <CardTitle className="text-3xl font-bold">
-          Create Account
-        </CardTitle>
+      {/* Main Container */}
+      <div className="relative z-10 mx-auto grid w-full max-w-6xl overflow-hidden rounded-[32px] border border-white/80 bg-white shadow-[0_30px_100px_rgba(20,83,45,0.13)] lg:grid-cols-[0.95fr_1.05fr]">
 
-        <CardDescription>
-          Join BookNook and explore your favorite books.
-        </CardDescription>
+        {/* ================= LEFT PANEL ================= */}
+        <section className="relative hidden flex-col justify-between overflow-hidden bg-[#103D29] p-10 text-white lg:flex xl:p-14">
 
-      </CardHeader>
+          {/* Decorative Background */}
+          <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full border border-white/10" />
+          <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full border border-white/10" />
+          <div className="absolute -bottom-40 -left-32 h-[450px] w-[450px] rounded-full bg-emerald-400/10 blur-3xl" />
 
-      <CardContent>
+          <div className="absolute right-12 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#D4A853]/10 blur-[80px]" />
 
-        {/* Signup Form */}
-        <form
-          onSubmit={handleSignup}
-          className="space-y-4"
-        >
-
-          {/* Name */}
-          <div className="space-y-2">
-
-            <Label htmlFor="name">
-              Full Name
-            </Label>
-
-            <Input
-              id="name"
-              name="name"
-              type="text"
-              placeholder="Enter your full name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-            />
-
-          </div>
-
-          {/* Email */}
-          <div className="space-y-2">
-
-            <Label htmlFor="email">
-              Email Address
-            </Label>
-
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
-
-          </div>
-
-          {/* Profile Image */}
-          <div className="space-y-2">
-
-            <Label htmlFor="image">
-              Photo URL
-            </Label>
-
-            <Input
-              id="image"
-              name="image"
-              type="url"
-              placeholder="https://example.com/photo.jpg"
-              value={formData.image}
-              onChange={handleChange}
-            />
-
-          </div>
-
-          {/* Password */}
-          <div className="space-y-2">
-
-            <Label htmlFor="password">
-              Password
-            </Label>
-
-            <div className="relative">
-
-              <Input
-                id="password"
-                name="password"
-                type={
-                  showPassword ? "text" : "password"
-                }
-                placeholder="Create a password"
-                value={formData.password}
-                onChange={handleChange}
-                className="pr-11"
-                required
-              />
-
-              <button
-                type="button"
-                onClick={() =>
-                  setShowPassword((prev) => !prev)
-                }
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 transition hover:text-emerald-700"
-                aria-label="Toggle password visibility"
-              >
-                {showPassword ? (
-                  <EyeOff size={18} />
-                ) : (
-                  <Eye size={18} />
-                )}
-              </button>
-
+          {/* Brand */}
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#D4A853] text-[#14251B] shadow-xl shadow-black/20">
+              <BookOpen size={30} strokeWidth={2.2} />
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              Minimum 8 characters, including uppercase
-              and lowercase letters.
-            </p>
-
+            <div>
+              <h2 className="text-2xl font-black tracking-tight">
+                BookNook
+              </h2>
+              <p className="text-[10px] font-semibold tracking-[0.28em] text-emerald-100/60">
+                YOUR READING SPACE
+              </p>
+            </div>
           </div>
 
-          {/* Error Message */}
-          {error && (
-            <p className="rounded-md bg-red-50 p-3 text-sm text-red-600">
-              {error}
+          {/* Main Content */}
+          <div className="relative z-10 my-12">
+
+            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#D4A853]/30 bg-[#D4A853]/10 px-4 py-2 text-xs font-bold tracking-wide text-[#E9C77E]">
+              <Sparkles size={14} />
+              YOUR NEXT CHAPTER STARTS HERE
+            </div>
+
+            <h1 className="max-w-lg text-4xl font-black leading-[1.2] tracking-tight xl:text-5xl">
+              Discover the
+              <span className="block text-[#D4A853]">
+                Joy of Reading.
+              </span>
+            </h1>
+
+            <p className="mt-6 max-w-md text-sm leading-8 text-emerald-100/70 xl:text-base">
+              Create your personal reading space, explore
+              amazing books and discover stories that stay
+              with you forever.
             </p>
-          )}
 
-          {/* Signup Button */}
-          <Button
-            type="submit"
-            disabled={loading || googleLoading}
-            className="w-full bg-emerald-600 text-white hover:bg-[#D4A853] hover:text-[#14251B]"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating Account...
-              </>
-            ) : (
-              "Create Account"
-            )}
-          </Button>
+            {/* Feature Cards */}
+            <div className="mt-10 space-y-4">
 
-        </form>
+              <div className="group flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 transition-all duration-300 hover:border-[#D4A853]/40 hover:bg-white/[0.10]">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#D4A853]/15 text-[#D4A853] transition-transform group-hover:scale-110">
+                  <Library size={23} />
+                </div>
 
-        {/* Separator */}
-        <div className="my-5 flex items-center gap-3">
+                <div>
+                  <h3 className="font-bold">
+                    Explore Your Library
+                  </h3>
+                  <p className="mt-1 text-xs text-emerald-100/55">
+                    Find books that inspire you.
+                  </p>
+                </div>
+              </div>
 
-          <Separator className="flex-1" />
+              <div className="group flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 transition-all duration-300 hover:border-[#D4A853]/40 hover:bg-white/[0.10]">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#D4A853]/15 text-[#D4A853] transition-transform group-hover:scale-110">
+                  <BookMarked size={23} />
+                </div>
 
-          <span className="text-xs text-muted-foreground">
-            OR
-          </span>
+                <div>
+                  <h3 className="font-bold">
+                    Borrow & Enjoy
+                  </h3>
+                  <p className="mt-1 text-xs text-emerald-100/55">
+                    Read more, learn more, grow more.
+                  </p>
+                </div>
+              </div>
 
-          <Separator className="flex-1" />
+            </div>
+          </div>
 
-        </div>
+          {/* Bottom Quote */}
+          <div className="relative z-10 border-t border-white/10 pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#D4A853]">
+                  "A reader lives a thousand lives."
+                </p>
+                <p className="mt-2 text-[10px] tracking-wide text-emerald-100/40">
+                  © 2026 BOOKNOOK. ALL RIGHTS RESERVED.
+                </p>
+              </div>
 
-        {/* Google Signup */}
-        <Button
-          type="button"
-          variant="outline"
-          disabled={loading || googleLoading}
-          className="w-full"
-          onClick={handleGoogleSignup}
-        >
+              <BookCopy
+                size={32}
+                className="text-white/20"
+              />
+            </div>
+          </div>
+        </section>
 
-          {googleLoading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Connecting to Google...
-            </>
-          ) : (
-            <>
-              <svg
-                viewBox="0 0 48 48"
-                className="mr-2 h-5 w-5"
+        {/* ================= RIGHT PANEL ================= */}
+        <Card className="w-full border-0 bg-white p-0 shadow-none">
+
+          <CardHeader className="space-y-4 px-6 pb-5 pt-8 sm:px-10 sm:pt-12 lg:px-12">
+
+            {/* Mobile Brand */}
+            <div className="mb-3 flex items-center gap-3 lg:hidden">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#14532D] text-[#D4A853] shadow-lg">
+                <BookOpen size={26} />
+              </div>
+
+              <div>
+                <h2 className="text-xl font-black text-[#14532D]">
+                  BookNook
+                </h2>
+                <p className="text-[10px] font-semibold tracking-[0.2em] text-gray-400">
+                  YOUR READING SPACE
+                </p>
+              </div>
+            </div>
+
+            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3.5 py-2 text-[10px] font-extrabold tracking-[0.12em] text-emerald-800">
+              <Sparkles size={13} />
+              CREATE YOUR FREE ACCOUNT
+            </div>
+
+            <div>
+              <CardTitle className="text-3xl font-black tracking-tight text-[#14251B] sm:text-4xl">
+                Join BookNook
+                <span className="text-[#D4A853]">.</span>
+              </CardTitle>
+
+              <CardDescription className="mt-3 max-w-sm text-sm leading-6 text-gray-500">
+                Your reading journey begins with one
+                simple step. Create an account today.
+              </CardDescription>
+            </div>
+
+          </CardHeader>
+
+          <CardContent className="px-6 pb-9 sm:px-10 lg:px-12 lg:pb-12">
+
+            <form
+              onSubmit={handleSignup}
+              className="space-y-5"
+            >
+
+              {/* Full Name */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="name"
+                  className="text-xs font-bold tracking-wide text-[#263C2E]"
+                >
+                  FULL NAME
+                </Label>
+
+                <div className="group relative">
+                  <UserRound
+                    size={18}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-emerald-700"
+                  />
+
+                  <Input
+                    id="name"
+                    name="name"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    className="h-12 rounded-xl border-gray-200 bg-[#FAFBF9] pl-11 pr-4 text-sm transition-all placeholder:text-gray-400 focus-visible:border-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-700/10"
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="space-y-2">
+                <Label
+                  htmlFor="email"
+                  className="text-xs font-bold tracking-wide text-[#263C2E]"
+                >
+                  EMAIL ADDRESS
+                </Label>
+
+                <div className="group relative">
+                  <Mail
+                    size={18}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-emerald-700"
+                  />
+
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    className="h-12 rounded-xl border-gray-200 bg-[#FAFBF9] pl-11 pr-4 text-sm transition-all placeholder:text-gray-400 focus-visible:border-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-700/10"
+                  />
+                </div>
+              </div>
+
+              {/* Profile Image */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="image"
+                    className="text-xs font-bold tracking-wide text-[#263C2E]"
+                  >
+                    PROFILE PHOTO URL
+                  </Label>
+
+                  <span className="text-[10px] font-semibold text-gray-400">
+                    OPTIONAL
+                  </span>
+                </div>
+
+                <div className="group relative">
+                  <ImagePlus
+                    size={18}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-emerald-700"
+                  />
+
+                  <Input
+                    id="image"
+                    name="image"
+                    type="url"
+                    placeholder="https://example.com/photo.jpg"
+                    value={formData.image}
+                    onChange={handleChange}
+                    className="h-12 rounded-xl border-gray-200 bg-[#FAFBF9] pl-11 pr-4 text-sm transition-all placeholder:text-gray-400 focus-visible:border-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-700/10"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div className="space-y-3">
+                <Label
+                  htmlFor="password"
+                  className="text-xs font-bold tracking-wide text-[#263C2E]"
+                >
+                  CREATE PASSWORD
+                </Label>
+
+                <div className="group relative">
+                  <ShieldCheck
+                    size={18}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-emerald-700"
+                  />
+
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a strong password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    maxLength={129}
+                    className="h-12 rounded-xl border-gray-200 bg-[#FAFBF9] pl-11 pr-12 text-sm transition-all placeholder:text-gray-400 focus-visible:border-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-700/10"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPassword((prev) => !prev)
+                    }
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-emerald-800"
+                    aria-label={
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff size={19} />
+                    ) : (
+                      <Eye size={19} />
+                    )}
+                  </button>
+                </div>
+
+                {/* Password Requirements */}
+                <div className="rounded-2xl border border-gray-100 bg-[#FAFBF9] p-4">
+
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <p className="text-xs font-extrabold text-[#263C2E]">
+                      Password requirements
+                    </p>
+
+                    {formData.password.length > 0 && (
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                          allRequirementsMet
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-amber-100 text-amber-800"
+                        }`}
+                      >
+                        {allRequirementsMet
+                          ? "Strong password"
+                          : "Requirements pending"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {passwordRequirements.map(
+                      (requirement, index) => (
+                        <div
+                          key={index}
+                          className={`flex items-center gap-2 text-[11px] font-medium transition-colors duration-200 ${
+                            requirement.valid
+                              ? "text-emerald-700"
+                              : "text-gray-400"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+                              requirement.valid
+                                ? "bg-emerald-100"
+                                : "bg-gray-100"
+                            }`}
+                          >
+                            {requirement.valid ? (
+                              <Check size={12} />
+                            ) : (
+                              <X size={12} />
+                            )}
+                          </span>
+
+                          <span>{requirement.label}</span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-3.5 text-sm text-red-600"
+                >
+                  <X
+                    size={17}
+                    className="mt-0.5 shrink-0"
+                  />
+                  <p>{error}</p>
+                </div>
+              )}
+
+              {/* Create Account Button */}
+              <Button
+                type="submit"
+                disabled={loading || googleLoading}
+                className="group h-12 w-full rounded-xl bg-gradient-to-r from-[#14532D] to-[#0D3B24] text-sm font-bold text-white shadow-lg shadow-emerald-900/15 transition-all duration-300 hover:-translate-y-0.5 hover:from-[#D4A853] hover:to-[#C4973D] hover:text-[#14251B] hover:shadow-amber-700/20 disabled:opacity-60"
               >
-                <path
-                  fill="#EA4335"
-                  d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-                />
-                <path
-                  fill="#4285F4"
-                  d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.74 7.18l7.73 6C44.43 37.97 46.98 31.89 46.98 24.55z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.15 1.45-4.89 2.3-8.18 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-                />
-              </svg>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  <>
+                    Create Account
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
+              </Button>
 
-              Continue with Google
-            </>
-          )}
+            </form>
 
-        </Button>
+            {/* Separator */}
+            <div className="my-6 flex items-center gap-4">
+              <Separator className="flex-1 bg-gray-200" />
 
-        {/* Login Link */}
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+              <span className="whitespace-nowrap text-[10px] font-bold tracking-[0.15em] text-gray-400">
+                OR CONTINUE WITH
+              </span>
 
-          Already have an account?{" "}
+              <Separator className="flex-1 bg-gray-200" />
+            </div>
 
-          <Link
-            href="/login"
-            className="font-semibold text-emerald-700 hover:text-[#D4A853] hover:underline"
-          >
-            Sign In
-          </Link>
+            {/* Google Signup */}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={loading || googleLoading}
+              className="h-12 w-full rounded-xl border-gray-200 bg-white font-bold text-gray-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50"
+              onClick={handleGoogleSignup}
+            >
+              {googleLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Connecting to Google...
+                </>
+              ) : (
+                <>
+                  <svg
+                    viewBox="0 0 48 48"
+                    className="mr-2 h-5 w-5"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fill="#EA4335"
+                      d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+                    />
+                    <path
+                      fill="#4285F4"
+                      d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.74 7.18l7.73 6C44.43 37.97 46.98 31.89 46.98 24.55z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.15 1.45-4.89 2.3-8.18 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+                    />
+                  </svg>
 
-        </p>
+                  Continue with Google
+                </>
+              )}
+            </Button>
 
-      </CardContent>
-    </Card>
+            {/* Login Link */}
+            <p className="mt-7 text-center text-sm text-gray-500">
+              Already have an account?{" "}
+              <Link
+                href="/login"
+                className="font-extrabold text-emerald-800 transition-colors hover:text-[#D4A853] hover:underline"
+              >
+                Sign In
+              </Link>
+            </p>
+
+            {/* Bottom Note */}
+            <div className="mt-6 flex items-center justify-center gap-2 border-t border-gray-100 pt-5">
+              <ShieldCheck
+                size={14}
+                className="text-emerald-700"
+              />
+
+              <p className="text-center text-[10px] font-medium text-gray-400">
+                Your reading journey is safe with BookNook.
+              </p>
+            </div>
+
+          </CardContent>
+        </Card>
+
+      </div>
+    </main>
   );
 }
