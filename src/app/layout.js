@@ -1,6 +1,6 @@
 
 import { Suspense } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 
 import "./globals.css";
 import "react-toastify/dist/ReactToastify.css";
@@ -10,14 +10,14 @@ import Fotter from "@/components/fotter";
 
 import { ToastContainer } from "react-toastify";
 
-const geistSans = Geist({
+const geistSans = localFont({
+  src: "./fonts/geist-sans.woff2",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "./fonts/geist-mono.woff2",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
 });
 
 export const metadata = {
