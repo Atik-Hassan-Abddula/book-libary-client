@@ -14,7 +14,10 @@ import {
 
 import { API_URL } from "@/lib/api";
 
-// Book cards animation
+// =====================================
+// BOOK CARDS ANIMATION
+// =====================================
+
 const containerVariants = {
   hidden: {},
   visible: {
@@ -41,47 +44,122 @@ const cardVariants = {
   },
 };
 
+// =====================================
+// NEW ARRIVALS COMPONENT
+// =====================================
+
 export default function NewArrivals() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Fetch Books
+  // =====================================
+  // FETCH BOOKS FROM BACKEND
+  // =====================================
+
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchBooks = async () => {
       try {
         setLoading(true);
         setError("");
 
         const response = await fetch(
-          `${API_URL}/books?limit=6`
+          `${API_URL}/books?limit=6`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal: controller.signal,
+          }
         );
 
         if (!response.ok) {
-          throw new Error("Failed to load books");
+          throw new Error(
+            `Failed to load books (${response.status})`
+          );
         }
 
         const result = await response.json();
 
         if (!result.success) {
           throw new Error(
-            result.message || "Could not load books"
+            result.message || "Could not load books."
           );
         }
 
-        setBooks(result.data || []);
+        // Backend returns { success: true, books: [] }
+        const latestBooks = Array.isArray(result.books)
+          ? result.books.slice(0, 6)
+          : [];
+
+        setBooks(latestBooks);
       } catch (err) {
+        if (err.name === "AbortError") return;
+
         console.error("New arrivals error:", err);
+
         setError(
           "Unable to load new arrivals. Please try again."
         );
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchBooks();
+
+    return () => controller.abort();
   }, []);
+
+  // =====================================
+  // RETRY FETCH
+  // =====================================
+
+  const handleRetry = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const response = await fetch(
+        `${API_URL}/books?limit=6`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load books.");
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(
+          result.message || "Could not load books."
+        );
+      }
+
+      setBooks(
+        Array.isArray(result.books)
+          ? result.books.slice(0, 6)
+          : []
+      );
+    } catch (err) {
+      console.error("Retry error:", err);
+      setError(
+        "Unable to load new arrivals. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =====================================
+  // RENDER
+  // =====================================
 
   return (
     <section className="bg-base-100 px-4 py-16 md:px-8 lg:px-12">
@@ -132,6 +210,13 @@ export default function NewArrivals() {
         {!loading && error && (
           <div className="rounded-xl border border-error/20 bg-error/5 p-6 text-center">
             <p className="text-error">{error}</p>
+
+            <button
+              onClick={handleRetry}
+              className="mt-4 rounded-lg bg-[#14532D] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#D4A853] hover:text-[#14251B]"
+            >
+              Try Again
+            </button>
           </div>
         )}
 
@@ -220,8 +305,7 @@ export default function NewArrivals() {
                   </p>
 
                   <div className="mt-5 border-t border-base-300 pt-4">
-
-                    {/* Animated View Details Button */}
+                    {/* View Details Button */}
 
                     <motion.div
                       whileHover={{
@@ -252,7 +336,6 @@ export default function NewArrivals() {
                         </motion.span>
                       </Link>
                     </motion.div>
-
                   </div>
                 </div>
               </motion.article>

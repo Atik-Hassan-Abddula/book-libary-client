@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -16,67 +15,94 @@ import {
 } from "lucide-react";
 
 import { toast } from "react-toastify";
-import { authClient } from "@/lib/auth-client";
+import {
+  getToken,
+  getCurrentUser,
+  removeToken,
+} from "@/lib/api";
 
 const publicLinks = [
-  {
-    name: "Home",
-    href: "/",
-  },
-  {
-    name: "All Books",
-    href: "/books",
-  },
+  { name: "Home", href: "/" },
+  { name: "All Books", href: "/books" },
 ];
 
 const privateLinks = [
-  {
-    name: "Add Book",
-    href: "/add-book",
-  },
-  {
-    name: "My Books",
-    href: "/my-books",
-  },
-  {
-    name: "My Borrows",
-    href: "/my-borrows",
-  },
+  { name: "Add Book", href: "/add-book" },
+  { name: "My Books", href: "/my-books" },
+  { name: "My Borrows", href: "/my-borrows" },
 ];
 
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Better Auth Session
-  const { data: session, isPending } = authClient.useSession();
+  const [user, setUser] = useState(null);
+  const [isPending, setIsPending] = useState(true);
 
-  const user = session?.user;
-  const isLoggedIn = Boolean(user);
-
-  // States
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
 
-  // Separate refs for desktop and mobile dropdowns
   const desktopProfileRef = useRef(null);
   const mobileProfileRef = useRef(null);
 
-  // Conditional Navigation Links
+  const isLoggedIn = Boolean(user);
+
   const navLinks = isLoggedIn
     ? [...publicLinks, ...privateLinks]
     : publicLinks;
 
-  // Close menus after route changes
+  // Verify JWT and get current user
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkUser = async () => {
+      if (!getToken()) {
+        if (isMounted) {
+          setUser(null);
+          setIsPending(false);
+        }
+        return;
+      }
+
+      try {
+        const result = await getCurrentUser();
+
+        if (isMounted) {
+          setUser(result.user || null);
+        }
+      } catch (error) {
+        console.error("Authentication Error:", error);
+
+        removeToken();
+
+        if (isMounted) {
+          setUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsPending(false);
+        }
+      }
+    };
+
+    setIsPending(true);
+    checkUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [pathname]);
+
+  // Close menus after navigation
   useEffect(() => {
     setMobileMenuOpen(false);
     setProfileOpen(false);
   }, [pathname]);
 
-  // Close profile dropdown on outside click and Escape
+  // Close dropdown on outside click and Escape
   useEffect(() => {
-    function handleClickOutside(event) {
+    const handleClickOutside = (event) => {
       const clickedInsideDesktop =
         desktopProfileRef.current?.contains(event.target);
 
@@ -86,14 +112,14 @@ export default function Navbar() {
       if (!clickedInsideDesktop && !clickedInsideMobile) {
         setProfileOpen(false);
       }
-    }
+    };
 
-    function handleEscape(event) {
+    const handleEscape = (event) => {
       if (event.key === "Escape") {
         setProfileOpen(false);
         setMobileMenuOpen(false);
       }
-    }
+    };
 
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleEscape);
@@ -104,19 +130,15 @@ export default function Navbar() {
     };
   }, []);
 
-  // Logout Handler
-  const handleSignOut = async () => {
+  // Logout
+  const handleSignOut = () => {
     if (loggingOut) return;
 
     try {
       setLoggingOut(true);
 
-      const { error } = await authClient.signOut();
-
-      if (error) {
-        throw new Error(error.message || "Logout failed!");
-      }
-
+      removeToken();
+      setUser(null);
       setProfileOpen(false);
       setMobileMenuOpen(false);
 
@@ -126,14 +148,13 @@ export default function Navbar() {
       router.refresh();
     } catch (error) {
       console.error("Logout Error:", error);
-
-      toast.error(error.message || "Something went wrong!");
+      toast.error(error.message || "Logout failed!");
     } finally {
       setLoggingOut(false);
     }
   };
 
-  // Active Link Checker
+  // Active link checker
   const isActiveLink = (href) => {
     if (href === "/") {
       return pathname === "/";
@@ -142,7 +163,7 @@ export default function Navbar() {
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  // Navigation Links
+  // Navigation links
   const renderNavLinks = (mobile = false) => (
     <>
       {navLinks.map((link) => {
@@ -153,9 +174,7 @@ export default function Navbar() {
             key={link.href}
             href={link.href}
             onClick={() => {
-              if (mobile) {
-                setMobileMenuOpen(false);
-              }
+              if (mobile) setMobileMenuOpen(false);
             }}
             className={`relative rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-300 ${
               active
@@ -170,24 +189,28 @@ export default function Navbar() {
     </>
   );
 
-  // User Avatar
-  const renderUserAvatar = (size = "h-9 w-9") => (
-    user?.image ? (
-      <img
-        src={user.image}
-        alt={user.name || "User"}
-        className={`${size} rounded-full object-cover`}
-      />
-    ) : (
+  // User avatar
+  const renderUserAvatar = (size = "h-9 w-9") => {
+    if (user?.image) {
+      return (
+        <img
+          src={user.image}
+          alt={user.name || "User"}
+          className={`${size} rounded-full object-cover`}
+        />
+      );
+    }
+
+    return (
       <div
         className={`${size} flex items-center justify-center rounded-full bg-[#14532D] font-bold text-white`}
       >
         {user?.name?.charAt(0)?.toUpperCase() || "U"}
       </div>
-    )
-  );
+    );
+  };
 
-  // Profile Dropdown
+  // Profile dropdown
   const renderProfileDropdown = () => (
     <div className="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
       <div className="border-b border-gray-100 bg-[#F7F5EF] p-4">
@@ -214,7 +237,7 @@ export default function Navbar() {
           type="button"
           onClick={handleSignOut}
           disabled={loggingOut}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
         >
           {loggingOut ? (
             <Loader2 size={18} className="animate-spin" />
@@ -233,10 +256,7 @@ export default function Navbar() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
 
         {/* Logo */}
-        <Link
-          href="/"
-          className="flex shrink-0 items-center gap-2"
-        >
+        <Link href="/" className="flex shrink-0 items-center gap-2">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#14532D] text-white shadow-md">
             <BookOpen size={25} />
           </div>
@@ -259,35 +279,29 @@ export default function Navbar() {
 
         {/* Desktop Authentication */}
         <div className="hidden items-center gap-3 lg:flex">
-
-          {/* Logged Out */}
           {!isPending && !isLoggedIn && (
             <>
               <Link
                 href="/login"
-                className="rounded-lg border border-[#14532D] px-5 py-2.5 text-sm font-semibold text-[#14532D] transition-all duration-300 hover:bg-[#14532D] hover:text-white"
+                className="rounded-lg border border-[#14532D] px-5 py-2.5 text-sm font-semibold text-[#14532D] transition hover:bg-[#14532D] hover:text-white"
               >
                 Login
               </Link>
 
               <Link
                 href="/register"
-                className="rounded-lg bg-[#14532D] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:bg-[#D4A853] hover:text-[#14251B]"
+                className="rounded-lg bg-[#14532D] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#D4A853] hover:text-[#14251B]"
               >
                 Register
               </Link>
             </>
           )}
 
-          {/* Logged In */}
           {!isPending && isLoggedIn && (
-            <div
-              className="relative"
-              ref={desktopProfileRef}
-            >
+            <div className="relative" ref={desktopProfileRef}>
               <button
                 type="button"
-                onClick={() => setProfileOpen(!profileOpen)}
+                onClick={() => setProfileOpen((prev) => !prev)}
                 aria-label="Open user menu"
                 aria-expanded={profileOpen}
                 className="flex items-center gap-2 rounded-full border border-gray-200 bg-white p-1.5 pr-3 transition hover:border-[#14532D]"
@@ -310,7 +324,6 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* Session Loading */}
           {isPending && (
             <Loader2
               className="animate-spin text-[#14532D]"
@@ -321,16 +334,11 @@ export default function Navbar() {
 
         {/* Mobile Actions */}
         <div className="flex items-center gap-2 lg:hidden">
-
-          {/* Mobile User Profile */}
           {!isPending && isLoggedIn && (
-            <div
-              className="relative"
-              ref={mobileProfileRef}
-            >
+            <div className="relative" ref={mobileProfileRef}>
               <button
                 type="button"
-                onClick={() => setProfileOpen(!profileOpen)}
+                onClick={() => setProfileOpen((prev) => !prev)}
                 aria-label="Open user menu"
                 aria-expanded={profileOpen}
                 className="rounded-full border-2 border-[#14532D] p-0.5"
@@ -342,7 +350,6 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* Mobile Session Loading */}
           {isPending && (
             <Loader2
               className="animate-spin text-[#14532D]"
@@ -350,13 +357,10 @@ export default function Navbar() {
             />
           )}
 
-          {/* Hamburger Button */}
           <button
             type="button"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label={
-              mobileMenuOpen ? "Close menu" : "Open menu"
-            }
+            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileMenuOpen}
             className="flex h-10 w-10 items-center justify-center rounded-lg text-[#14532D] transition hover:bg-[#14532D]/10"
           >
@@ -369,7 +373,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Navigation Menu */}
+      {/* Mobile Navigation */}
       <div
         className={`overflow-hidden border-t border-gray-200 bg-[#F7F5EF] transition-all duration-300 lg:hidden ${
           mobileMenuOpen
@@ -378,12 +382,9 @@ export default function Navbar() {
         }`}
       >
         <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
-
           {renderNavLinks(true)}
 
           <div className="mt-3 border-t border-gray-200 pt-4">
-
-            {/* Mobile Logged Out */}
             {!isPending && !isLoggedIn && (
               <div className="flex gap-3">
                 <Link
@@ -404,7 +405,6 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* Mobile Logged In */}
             {!isPending && isLoggedIn && (
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -421,13 +421,10 @@ export default function Navbar() {
                   type="button"
                   onClick={handleSignOut}
                   disabled={loggingOut}
-                  className="flex shrink-0 items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex shrink-0 items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
                 >
                   {loggingOut ? (
-                    <Loader2
-                      size={17}
-                      className="animate-spin"
-                    />
+                    <Loader2 size={17} className="animate-spin" />
                   ) : (
                     <LogOut size={17} />
                   )}

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
+import { registerUser, saveToken } from "@/lib/api";
 
 import {
   BookOpen,
@@ -53,7 +53,7 @@ export default function SignupForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Live Password Requirements
+  // Password Requirements
   const passwordRequirements = [
     {
       label: "At least 8 characters",
@@ -91,18 +91,17 @@ export default function SignupForm() {
     if (error) setError("");
   };
 
-  // Handle Email Signup
+  // Handle Registration
   const handleSignup = async (e) => {
     e.preventDefault();
     setError("");
 
-    const formDataObject = new FormData(e.currentTarget);
+    const { name, email, image, password } = formData;
 
-    const userData = Object.fromEntries(
-      formDataObject.entries()
-    );
-
-    const { name, email, image, password } = userData;
+    if (!name.trim()) {
+      setError("Please enter your full name.");
+      return;
+    }
 
     if (!/[A-Z]/.test(password)) {
       setError(
@@ -126,62 +125,56 @@ export default function SignupForm() {
     }
 
     if (password.length > 128) {
-      setError(
-        "Password cannot exceed 128 characters."
-      );
+      setError("Password cannot exceed 128 characters.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const { data, error } = await authClient.signUp.email({
-        name,
-        email,
+      const result = await registerUser({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        image: image.trim(),
         password,
-        image: image || undefined,
-        callbackURL: "/",
       });
 
-      if (error) {
-        setError(error.message || "Registration failed.");
-        return;
+      if (!result.success || !result.token) {
+        throw new Error(
+          result.message || "Registration failed."
+        );
       }
 
-      console.log("Signup successful:", data);
+      // Save JWT Token
+      saveToken(result.token);
 
+      // Reset Form
+      setFormData({
+        name: "",
+        email: "",
+        image: "",
+        password: "",
+      });
+
+      // Redirect
       router.push("/");
       router.refresh();
     } catch (err) {
       console.error("Signup Error:", err);
 
-      setError(err.message || "Something went wrong.");
+      setError(
+        err.message || "Something went wrong during registration."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Google Signup
+  // Google Signup (Not Configured Yet)
   const handleGoogleSignup = async () => {
-    setError("");
-    setGoogleLoading(true);
-
-    try {
-      const { error } = await authClient.signIn.social({
-        provider: "google",
-        callbackURL: "/",
-      });
-
-      if (error) {
-        setError(error.message || "Google signup failed.");
-        setGoogleLoading(false);
-      }
-    } catch (err) {
-      console.error("Google Signup Error:", err);
-
-      setError(err.message || "Google signup failed.");
-      setGoogleLoading(false);
-    }
+    setError(
+      "Google signup is not configured yet. Please use email and password."
+    );
   };
 
   return (
@@ -189,20 +182,23 @@ export default function SignupForm() {
 
       {/* Background Decorations */}
       <div className="pointer-events-none absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full bg-emerald-200/40 blur-[100px]" />
+
       <div className="pointer-events-none absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-amber-200/40 blur-[100px]" />
 
-      <div className="pointer-events-none absolute left-[12%] top-[20%] h-20 w-20 rounded-3xl border border-emerald-200/50 rotate-12" />
+      <div className="pointer-events-none absolute left-[12%] top-[20%] h-20 w-20 rotate-12 rounded-3xl border border-emerald-200/50" />
+
       <div className="pointer-events-none absolute bottom-[15%] right-[10%] h-24 w-24 rounded-full border border-amber-300/40" />
 
       {/* Main Container */}
       <div className="relative z-10 mx-auto grid w-full max-w-6xl overflow-hidden rounded-[32px] border border-white/80 bg-white shadow-[0_30px_100px_rgba(20,83,45,0.13)] lg:grid-cols-[0.95fr_1.05fr]">
 
-        {/* ================= LEFT PANEL ================= */}
+        {/* LEFT PANEL */}
         <section className="relative hidden flex-col justify-between overflow-hidden bg-[#103D29] p-10 text-white lg:flex xl:p-14">
 
-          {/* Decorative Background */}
           <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full border border-white/10" />
+
           <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full border border-white/10" />
+
           <div className="absolute -bottom-40 -left-32 h-[450px] w-[450px] rounded-full bg-emerald-400/10 blur-3xl" />
 
           <div className="absolute right-12 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#D4A853]/10 blur-[80px]" />
@@ -217,6 +213,7 @@ export default function SignupForm() {
               <h2 className="text-2xl font-black tracking-tight">
                 BookNook
               </h2>
+
               <p className="text-[10px] font-semibold tracking-[0.28em] text-emerald-100/60">
                 YOUR READING SPACE
               </p>
@@ -256,6 +253,7 @@ export default function SignupForm() {
                   <h3 className="font-bold">
                     Explore Your Library
                   </h3>
+
                   <p className="mt-1 text-xs text-emerald-100/55">
                     Find books that inspire you.
                   </p>
@@ -271,6 +269,7 @@ export default function SignupForm() {
                   <h3 className="font-bold">
                     Borrow & Enjoy
                   </h3>
+
                   <p className="mt-1 text-xs text-emerald-100/55">
                     Read more, learn more, grow more.
                   </p>
@@ -287,6 +286,7 @@ export default function SignupForm() {
                 <p className="text-sm font-semibold text-[#D4A853]">
                   "A reader lives a thousand lives."
                 </p>
+
                 <p className="mt-2 text-[10px] tracking-wide text-emerald-100/40">
                   © 2026 BOOKNOOK. ALL RIGHTS RESERVED.
                 </p>
@@ -300,7 +300,7 @@ export default function SignupForm() {
           </div>
         </section>
 
-        {/* ================= RIGHT PANEL ================= */}
+        {/* RIGHT PANEL */}
         <Card className="w-full border-0 bg-white p-0 shadow-none">
 
           <CardHeader className="space-y-4 px-6 pb-5 pt-8 sm:px-10 sm:pt-12 lg:px-12">
@@ -315,6 +315,7 @@ export default function SignupForm() {
                 <h2 className="text-xl font-black text-[#14532D]">
                   BookNook
                 </h2>
+
                 <p className="text-[10px] font-semibold tracking-[0.2em] text-gray-400">
                   YOUR READING SPACE
                 </p>
@@ -485,7 +486,6 @@ export default function SignupForm() {
 
                 {/* Password Requirements */}
                 <div className="rounded-2xl border border-gray-100 bg-[#FAFBF9] p-4">
-
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <p className="text-xs font-extrabold text-[#263C2E]">
                       Password requirements
@@ -549,6 +549,7 @@ export default function SignupForm() {
                     size={17}
                     className="mt-0.5 shrink-0"
                   />
+
                   <p>{error}</p>
                 </div>
               )}
@@ -609,14 +610,17 @@ export default function SignupForm() {
                       fill="#EA4335"
                       d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
                     />
+
                     <path
                       fill="#4285F4"
                       d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.74 7.18l7.73 6C44.43 37.97 46.98 31.89 46.98 24.55z"
                     />
+
                     <path
                       fill="#FBBC05"
                       d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19z"
                     />
+
                     <path
                       fill="#34A853"
                       d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.15 1.45-4.89 2.3-8.18 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"

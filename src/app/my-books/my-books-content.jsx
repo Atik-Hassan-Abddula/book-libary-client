@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+
 import {
   BookOpen,
   Plus,
@@ -15,93 +16,123 @@ import {
   Library,
   RefreshCw,
 } from "lucide-react";
+
 import { toast } from "react-toastify";
 
-import { authClient } from "@/lib/auth-client";
-import { API_URL } from "@/lib/api";
+import {
+  getToken,
+  getCurrentUser,
+  apiRequest,
+} from "@/lib/api";
 
 export default function MyBooksContent() {
-  const { data: session, isPending } = authClient.useSession();
-
-  const user = session?.user;
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [selectedBook, setSelectedBook] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+
+  // =====================================
+  // CHECK JWT AUTHENTICATION
+  // =====================================
+
+  useEffect(() => {
+    let active = true;
+
+    const checkUser = async () => {
+      try {
+        if (!getToken()) {
+          if (active) {
+            setUser(null);
+          }
+          return;
+        }
+
+        const result = await getCurrentUser();
+
+        if (active) {
+          setUser(result.user || null);
+        }
+      } catch (err) {
+        console.error("Authentication Error:", err);
+
+        if (active) {
+          setUser(null);
+        }
+      } finally {
+        if (active) {
+          setAuthLoading(false);
+        }
+      }
+    };
+
+    checkUser();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // =====================================
   // FETCH MY BOOKS
   // =====================================
 
   const fetchMyBooks = useCallback(async () => {
-    if (!user?.email) return;
+    if (!user) return;
 
     try {
       setLoading(true);
       setError("");
 
-      const response = await fetch(
-        `${API_URL}/my-books?email=${encodeURIComponent(user.email)}`,
-        {
-          cache: "no-store",
-        }
-      );
+      const result = await apiRequest("/my-books");
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Failed to load your books.");
-      }
-
-      const myBooks = Array.isArray(result)
-        ? result
-        : result.books || result.data || [];
+      const myBooks = Array.isArray(result.books)
+        ? result.books
+        : [];
 
       setBooks(myBooks);
     } catch (err) {
       console.error("Fetch My Books Error:", err);
-      setError(err.message || "Something went wrong.");
+
+      setError(err.message || "Failed to load your books.");
     } finally {
       setLoading(false);
     }
-  }, [user?.email]);
+  }, [user]);
 
   useEffect(() => {
-    if (isPending) return;
+    if (authLoading) return;
 
-    if (!user?.email) {
+    if (!user) {
       setBooks([]);
       setLoading(false);
       return;
     }
 
     fetchMyBooks();
-  }, [isPending, user?.email, fetchMyBooks]);
+  }, [authLoading, user, fetchMyBooks]);
 
   // =====================================
   // DELETE BOOK
   // =====================================
 
   const handleDeleteBook = async () => {
-    if (!selectedBook || !user?.email) return;
+    if (!selectedBook || !user) return;
 
     const bookId = selectedBook._id;
 
     try {
       setDeletingId(bookId);
 
-      const response = await fetch(
-        `${API_URL}/books/${bookId}?email=${encodeURIComponent(user.email)}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const result = await apiRequest(`/books/${bookId}`, {
+        method: "DELETE",
+      });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
+      if (!result.success) {
         throw new Error(result.message || "Failed to delete book.");
       }
 
@@ -114,6 +145,7 @@ export default function MyBooksContent() {
       toast.success("Book deleted successfully!");
     } catch (err) {
       console.error("Delete Book Error:", err);
+
       toast.error(err.message || "Failed to delete book.");
     } finally {
       setDeletingId(null);
@@ -121,17 +153,20 @@ export default function MyBooksContent() {
   };
 
   // =====================================
-  // LOADING STATE
+  // AUTHENTICATION LOADING
   // =====================================
 
-  if (isPending || loading) {
+  if (authLoading) {
     return (
       <main className="flex min-h-[70vh] items-center justify-center bg-[#F7F5EF] px-4">
         <div className="text-center">
-          <Loader2 className="mx-auto animate-spin text-[#14532D]" size={42} />
+          <Loader2
+            className="mx-auto animate-spin text-[#14532D]"
+            size={42}
+          />
 
           <p className="mt-4 font-semibold text-[#14532D]">
-            Loading your books...
+            Verifying your account...
           </p>
         </div>
       </main>
@@ -146,7 +181,10 @@ export default function MyBooksContent() {
     return (
       <main className="flex min-h-[70vh] items-center justify-center bg-[#F7F5EF] px-4">
         <div className="w-full max-w-md rounded-2xl border border-[#E8E2D5] bg-white p-8 text-center shadow-sm">
-          <BookOpen className="mx-auto text-[#D4A853]" size={48} />
+          <BookOpen
+            className="mx-auto text-[#D4A853]"
+            size={48}
+          />
 
           <h1 className="mt-5 text-2xl font-black text-[#14532D]">
             Login Required
@@ -157,11 +195,32 @@ export default function MyBooksContent() {
           </p>
 
           <Link
-            href="/sign-in"
+            href="/login"
             className="mt-6 inline-flex rounded-xl bg-[#14532D] px-6 py-3 font-bold text-white transition hover:bg-[#0F3D22]"
           >
             Login Now
           </Link>
+        </div>
+      </main>
+    );
+  }
+
+  // =====================================
+  // BOOKS LOADING
+  // =====================================
+
+  if (loading) {
+    return (
+      <main className="flex min-h-[70vh] items-center justify-center bg-[#F7F5EF] px-4">
+        <div className="text-center">
+          <Loader2
+            className="mx-auto animate-spin text-[#14532D]"
+            size={42}
+          />
+
+          <p className="mt-4 font-semibold text-[#14532D]">
+            Loading your books...
+          </p>
         </div>
       </main>
     );
@@ -175,15 +234,21 @@ export default function MyBooksContent() {
     return (
       <main className="flex min-h-[70vh] items-center justify-center bg-[#F7F5EF] px-4">
         <div className="w-full max-w-md rounded-2xl border border-red-100 bg-white p-8 text-center shadow-sm">
-          <AlertCircle className="mx-auto text-red-500" size={45} />
+          <AlertCircle
+            className="mx-auto text-red-500"
+            size={45}
+          />
 
           <h2 className="mt-4 text-xl font-bold text-gray-800">
             Something went wrong
           </h2>
 
-          <p className="mt-3 text-sm text-gray-500">{error}</p>
+          <p className="mt-3 text-sm text-gray-500">
+            {error}
+          </p>
 
           <button
+            type="button"
             onClick={fetchMyBooks}
             className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#14532D] px-5 py-3 font-bold text-white transition hover:bg-[#0F3D22]"
           >
@@ -235,7 +300,10 @@ export default function MyBooksContent() {
           <div className="rounded-2xl border border-[#E8E2D5] bg-white p-6 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="rounded-xl bg-[#14532D]/10 p-3">
-                <Library className="text-[#14532D]" size={25} />
+                <Library
+                  className="text-[#14532D]"
+                  size={25}
+                />
               </div>
 
               <div>
@@ -253,7 +321,10 @@ export default function MyBooksContent() {
           <div className="rounded-2xl border border-[#E8E2D5] bg-white p-6 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="rounded-xl bg-[#D4A853]/15 p-3">
-                <BookOpen className="text-[#B58A36]" size={25} />
+                <BookOpen
+                  className="text-[#B58A36]"
+                  size={25}
+                />
               </div>
 
               <div>
@@ -312,9 +383,9 @@ export default function MyBooksContent() {
                 {/* BOOK IMAGE */}
 
                 <div className="relative h-64 overflow-hidden bg-[#E8E2D5]">
-                  {book.imageUrl ? (
+                  {book.image || book.imageUrl ? (
                     <Image
-                      src={book.imageUrl}
+                      src={book.image || book.imageUrl}
                       alt={book.title || "Book cover"}
                       fill
                       unoptimized
@@ -323,7 +394,10 @@ export default function MyBooksContent() {
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center">
-                      <BookOpen size={55} className="text-[#14532D]/40" />
+                      <BookOpen
+                        size={55}
+                        className="text-[#14532D]/40"
+                      />
                     </div>
                   )}
 
@@ -345,14 +419,20 @@ export default function MyBooksContent() {
 
                   <div className="mt-5 flex items-center justify-between border-t border-[#E8E2D5] pt-4 text-sm">
                     <div>
-                      <p className="text-gray-500">Total Quantity</p>
+                      <p className="text-gray-500">
+                        Total Quantity
+                      </p>
+
                       <p className="mt-1 font-bold text-[#14532D]">
                         {book.quantity ?? 0}
                       </p>
                     </div>
 
                     <div className="text-right">
-                      <p className="text-gray-500">Available</p>
+                      <p className="text-gray-500">
+                        Available
+                      </p>
+
                       <p className="mt-1 font-bold text-green-700">
                         {book.availableQuantity ?? 0}
                       </p>
@@ -404,7 +484,10 @@ export default function MyBooksContent() {
           >
             <div className="flex items-start justify-between">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                <Trash2 className="text-red-600" size={24} />
+                <Trash2
+                  className="text-red-600"
+                  size={24}
+                />
               </div>
 
               <button
@@ -451,7 +534,10 @@ export default function MyBooksContent() {
               >
                 {deletingId === selectedBook._id ? (
                   <>
-                    <Loader2 size={17} className="animate-spin" />
+                    <Loader2
+                      size={17}
+                      className="animate-spin"
+                    />
                     Deleting...
                   </>
                 ) : (

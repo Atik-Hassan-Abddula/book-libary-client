@@ -15,7 +15,12 @@ export default function AllBooksPage() {
   useEffect(() => {
     const fetchBooks = async () => {
       try {
-        const response = await fetch(`${API_URL}/books`);
+        setLoading(true);
+        setError("");
+
+        const response = await fetch(`${API_URL}/books`, {
+          cache: "no-store",
+        });
 
         if (!response.ok) {
           throw new Error("Failed to fetch books");
@@ -27,9 +32,10 @@ export default function AllBooksPage() {
           throw new Error(result.message || "Could not load books");
         }
 
-        setBooks(result.data || []);
+        // Backend returns books inside result.books
+        setBooks(Array.isArray(result.books) ? result.books : []);
       } catch (err) {
-        setError(err.message);
+        setError(err.message || "Something went wrong");
       } finally {
         setLoading(false);
       }
@@ -50,6 +56,12 @@ export default function AllBooksPage() {
     return (
       <div className="py-20 text-center">
         <p className="text-error">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="btn btn-primary mt-4"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
@@ -70,6 +82,12 @@ export default function AllBooksPage() {
           <div className="py-20 text-center">
             <BookOpen size={48} className="mx-auto mb-4 opacity-50" />
             <h2 className="text-xl font-semibold">No Books Found</h2>
+            <p className="mt-2 text-base-content/60">
+              No books have been added to the library yet.
+            </p>
+            <Link href="/add-book" className="btn btn-primary mt-5">
+              Add Your First Book
+            </Link>
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -82,7 +100,7 @@ export default function AllBooksPage() {
                   {book.imageUrl || book.image ? (
                     <Image
                       src={book.imageUrl || book.image}
-                      alt={book.title}
+                      alt={book.title || "Book cover"}
                       fill
                       unoptimized
                       className="object-cover"

@@ -16,16 +16,57 @@ import {
 } from "lucide-react";
 
 import { toast } from "react-toastify";
-import { authClient } from "@/lib/auth-client";
-import { API_URL } from "@/lib/api";
+
+import {
+  getToken,
+  getCurrentUser,
+  apiRequest,
+} from "@/lib/api";
 
 export default function MyBorrowsPage() {
-  const { data: session, isPending } = authClient.useSession();
-  const user = session?.user;
+  const [user, setUser] = useState(null);
+  const [isPending, setIsPending] = useState(true);
 
   const [borrowedBooks, setBorrowedBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [returningId, setReturningId] = useState(null);
+
+  // =====================================
+  // VERIFY AUTHENTICATION
+  // =====================================
+
+  useEffect(() => {
+    let active = true;
+
+    const verifyUser = async () => {
+      try {
+        if (!getToken()) {
+          if (active) setUser(null);
+          return;
+        }
+
+        const result = await getCurrentUser();
+
+        if (active && result.success && result.user) {
+          setUser(result.user);
+        } else if (active) {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error("Authentication Error:", error);
+
+        if (active) setUser(null);
+      } finally {
+        if (active) setIsPending(false);
+      }
+    };
+
+    verifyUser();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // =====================================
   // FETCH BORROWED BOOKS
@@ -37,24 +78,20 @@ export default function MyBorrowsPage() {
     try {
       setLoading(true);
 
-      const response = await fetch(
-        `${API_URL}/my-borrows?email=${encodeURIComponent(user.email)}`,
-        {
-          cache: "no-store",
-        }
-      );
+      const result = await apiRequest("/my-borrows");
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
+      if (!result.success) {
         throw new Error(
           result.message || "Failed to load borrowed books."
         );
       }
 
-      setBorrowedBooks(result.data || []);
+      setBorrowedBooks(
+        result.data || result.borrows || []
+      );
     } catch (error) {
       console.error("Fetch Borrowed Books Error:", error);
+
       toast.error(error.message || "Something went wrong.");
     } finally {
       setLoading(false);
@@ -62,7 +99,7 @@ export default function MyBorrowsPage() {
   }, [user?.email]);
 
   // =====================================
-  // LOAD DATA
+  // LOAD BORROWED BOOKS
   // =====================================
 
   useEffect(() => {
@@ -75,7 +112,7 @@ export default function MyBorrowsPage() {
     }
 
     fetchBorrowedBooks();
-  }, [user?.email, isPending, fetchBorrowedBooks]);
+  }, [user, isPending, fetchBorrowedBooks]);
 
   // =====================================
   // RETURN BOOK
@@ -90,22 +127,14 @@ export default function MyBorrowsPage() {
     try {
       setReturningId(borrowId);
 
-      const response = await fetch(
-        `${API_URL}/borrow/${borrowId}/return`,
+      const result = await apiRequest(
+        `/borrow/${borrowId}/return`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userEmail: user.email,
-          }),
         }
       );
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
+      if (!result.success) {
         throw new Error(
           result.message || "Could not return this book."
         );
@@ -118,6 +147,7 @@ export default function MyBorrowsPage() {
       toast.success("Book returned successfully!");
     } catch (error) {
       console.error("Return Book Error:", error);
+
       toast.error(error.message || "Failed to return book.");
     } finally {
       setReturningId(null);
@@ -145,7 +175,7 @@ export default function MyBorrowsPage() {
   };
 
   // =====================================
-  // SESSION LOADING
+  // AUTHENTICATION LOADING
   // =====================================
 
   if (isPending) {
@@ -153,6 +183,7 @@ export default function MyBorrowsPage() {
       <main className="flex min-h-[70vh] items-center justify-center bg-[#F7F5EF]">
         <div className="text-center">
           <LoaderCircle className="mx-auto h-10 w-10 animate-spin text-[#14532D]" />
+
           <p className="mt-4 text-sm font-medium text-gray-500">
             Checking your account...
           </p>
@@ -162,7 +193,7 @@ export default function MyBorrowsPage() {
   }
 
   // =====================================
-  // NOT LOGGED IN
+  // LOGIN REQUIRED
   // =====================================
 
   if (!user) {
@@ -338,10 +369,37 @@ export default function MyBorrowsPage() {
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {borrowedBooks.map((book) => {
+                // Backend field: dueDate
                 const isOverdue =
-                  book.returnDate &&
-                  new Date(book.returnDate).getTime() <
+                  book.dueDate &&
+                  new Date(book.dueDate).getTime() <
                     new Date().setHours(0, 0, 0, 0);
+
+                // Backend field: bookImage
+                const imageSrc =
+                  book.bookImage ||
+                  book.image ||
+                  book.imageUrl ||
+                  book.book?.image ||
+                  book.book?.imageUrl ||
+                  "";
+
+                // Backend field: bookTitle
+                const bookTitle =
+                  book.bookTitle ||
+                  book.title ||
+                  book.book?.title ||
+                  "Borrowed Book";
+
+                const bookAuthor =
+                  book.author ||
+                  book.book?.author ||
+                  "Unknown Author";
+
+                const bookCategory =
+                  book.category ||
+                  book.book?.category ||
+                  "Book";
 
                 return (
                   <article
@@ -351,23 +409,40 @@ export default function MyBorrowsPage() {
                     {/* BOOK IMAGE */}
 
                     <div className="relative h-64 overflow-hidden bg-[#F0EDE4]">
-                      {book.imageUrl ? (
+                      {imageSrc ? (
                         <img
-                          src={book.imageUrl}
-                          alt={book.title || "Borrowed book"}
+                          src={imageSrc}
+                          alt={bookTitle}
                           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                          onError={(event) => {
+                            event.currentTarget.style.display = "none";
+
+                            const fallback =
+                              event.currentTarget.parentElement.querySelector(
+                                ".book-image-fallback"
+                              );
+
+                            if (fallback) {
+                              fallback.style.display = "flex";
+                            }
+                          }}
                         />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <BookOpen
-                            size={55}
-                            className="text-[#14532D]"
-                          />
-                        </div>
-                      )}
+                      ) : null}
+
+                      <div
+                        className="book-image-fallback absolute inset-0 items-center justify-center"
+                        style={{
+                          display: imageSrc ? "none" : "flex",
+                        }}
+                      >
+                        <BookOpen
+                          size={55}
+                          className="text-[#14532D]"
+                        />
+                      </div>
 
                       <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-2 text-xs font-bold text-[#14532D] shadow-sm">
-                        {book.category || "Book"}
+                        {bookCategory}
                       </span>
                     </div>
 
@@ -375,11 +450,11 @@ export default function MyBorrowsPage() {
 
                     <div className="p-5">
                       <h3 className="line-clamp-1 text-xl font-black text-[#14532D]">
-                        {book.title}
+                        {bookTitle}
                       </h3>
 
                       <p className="mt-2 text-sm text-gray-500">
-                        By {book.author}
+                        By {bookAuthor}
                       </p>
 
                       {/* DATE INFORMATION */}
@@ -392,7 +467,7 @@ export default function MyBorrowsPage() {
                           </span>
 
                           <span className="text-xs font-bold text-[#14532D]">
-                            {formatDate(book.borrowDate)}
+                            {formatDate(book.borrowedAt)}
                           </span>
                         </div>
 
@@ -409,7 +484,7 @@ export default function MyBorrowsPage() {
                                 : "text-[#14532D]"
                             }`}
                           >
-                            {formatDate(book.returnDate)}
+                            {formatDate(book.dueDate)}
                           </span>
                         </div>
                       </div>

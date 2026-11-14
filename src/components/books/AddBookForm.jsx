@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BookPlus,
@@ -13,8 +13,11 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 
-import { authClient } from "@/lib/auth-client";
-import { API_URL } from "@/lib/api";
+import {
+  getToken,
+  getCurrentUser,
+  apiRequest,
+} from "@/lib/api";
 
 const initialFormData = {
   title: "",
@@ -36,11 +39,58 @@ const categories = [
 export default function AddBookForm() {
   const router = useRouter();
 
-  const { data: session, isPending } = authClient.useSession();
-  const user = session?.user;
+  const [user, setUser] = useState(null);
+  const [isPending, setIsPending] = useState(true);
 
   const [formData, setFormData] = useState(initialFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // =====================================
+  // VERIFY USER WITH JWT
+  // =====================================
+
+  useEffect(() => {
+    let active = true;
+
+    const verifyUser = async () => {
+      try {
+        const token = getToken();
+
+        if (!token) {
+          if (active) setUser(null);
+          return;
+        }
+
+        const result = await getCurrentUser();
+
+        if (active && result.success && result.user) {
+          setUser(result.user);
+        } else {
+          if (active) setUser(null);
+        }
+      } catch (error) {
+        console.error("Add Book Authentication Error:", error);
+
+        if (active) {
+          setUser(null);
+        }
+      } finally {
+        if (active) {
+          setIsPending(false);
+        }
+      }
+    };
+
+    verifyUser();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // =====================================
+  // HANDLE INPUT CHANGE
+  // =====================================
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -51,10 +101,14 @@ export default function AddBookForm() {
     }));
   };
 
+  // =====================================
+  // SUBMIT BOOK
+  // =====================================
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!user) {
+    if (!user || !getToken()) {
       toast.warning("Please login to add a book.");
       router.push("/login");
       return;
@@ -62,37 +116,45 @@ export default function AddBookForm() {
 
     if (isSubmitting) return;
 
-    if (!Number.isInteger(Number(formData.quantity)) ||
-        Number(formData.quantity) < 1) {
+    if (
+      !Number.isInteger(Number(formData.quantity)) ||
+      Number(formData.quantity) < 1
+    ) {
       toast.error("Total copies must be at least 1.");
+      return;
+    }
+
+    if (
+      !formData.title.trim() ||
+      !formData.author.trim() ||
+      !formData.category.trim() ||
+      !formData.imageUrl.trim() ||
+      !formData.description.trim()
+    ) {
+      toast.error("Please fill in all required fields.");
       return;
     }
 
     try {
       setIsSubmitting(true);
 
+      // Backend expects "image", not "imageUrl"
       const bookData = {
         title: formData.title.trim(),
         author: formData.author.trim(),
-        category: formData.category,
-        imageUrl: formData.imageUrl.trim(),
+        category: formData.category.trim(),
+        image: formData.imageUrl.trim(),
         description: formData.description.trim(),
         quantity: Number(formData.quantity),
-        userName: user.name || "",
-        userEmail: user.email,
       };
 
-      const response = await fetch(`${API_URL}/books`, {
+      // JWT Bearer Token is automatically included
+      const result = await apiRequest("/books", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify(bookData),
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
+      if (!result.success) {
         throw new Error(
           result.message || "Unable to add the book."
         );
@@ -112,11 +174,19 @@ export default function AddBookForm() {
     }
   };
 
+  // =====================================
+  // STYLES
+  // =====================================
+
   const inputClass =
     "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-[#14532D] focus:ring-4 focus:ring-[#14532D]/10";
 
   const labelClass =
     "text-sm font-bold text-[#14251B]";
+
+  // =====================================
+  // LOADING
+  // =====================================
 
   if (isPending) {
     return (
@@ -128,6 +198,10 @@ export default function AddBookForm() {
       </div>
     );
   }
+
+  // =====================================
+  // LOGIN REQUIRED
+  // =====================================
 
   if (!user) {
     return (
@@ -156,12 +230,17 @@ export default function AddBookForm() {
     );
   }
 
+  // =====================================
+  // ADD BOOK FORM
+  // =====================================
+
   return (
     <form
       onSubmit={handleSubmit}
       className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-xl shadow-[#14532D]/5"
     >
       {/* Form Header */}
+
       <div className="bg-[#14532D] px-6 py-7 text-white sm:px-9">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/10">
@@ -172,6 +251,7 @@ export default function AddBookForm() {
             <h2 className="text-xl font-extrabold sm:text-2xl">
               Book Information
             </h2>
+
             <p className="mt-1 text-sm text-white/70">
               Add a new book to your library collection.
             </p>
@@ -180,10 +260,13 @@ export default function AddBookForm() {
       </div>
 
       <div className="space-y-7 p-5 sm:p-9">
+
         {/* Basic Information */}
+
         <section>
           <div className="mb-5 flex items-center gap-2">
             <BookOpen size={19} className="text-[#14532D]" />
+
             <h3 className="font-bold text-[#14532D]">
               Basic Information
             </h3>
@@ -194,6 +277,7 @@ export default function AddBookForm() {
               <label htmlFor="title" className={labelClass}>
                 Book Title *
               </label>
+
               <input
                 id="title"
                 name="title"
@@ -211,6 +295,7 @@ export default function AddBookForm() {
               <label htmlFor="author" className={labelClass}>
                 Author Name *
               </label>
+
               <input
                 id="author"
                 name="author"
@@ -228,6 +313,7 @@ export default function AddBookForm() {
               <label htmlFor="category" className={labelClass}>
                 Book Category *
               </label>
+
               <select
                 id="category"
                 name="category"
@@ -248,6 +334,7 @@ export default function AddBookForm() {
               <label htmlFor="quantity" className={labelClass}>
                 Total Copies *
               </label>
+
               <input
                 id="quantity"
                 name="quantity"
@@ -265,9 +352,11 @@ export default function AddBookForm() {
         </section>
 
         {/* Image */}
+
         <section>
           <div className="mb-5 flex items-center gap-2">
             <ImagePlus size={19} className="text-[#14532D]" />
+
             <h3 className="font-bold text-[#14532D]">
               Book Cover
             </h3>
@@ -298,10 +387,12 @@ export default function AddBookForm() {
                   event.currentTarget.style.display = "none";
                 }}
               />
+
               <div>
                 <p className="text-sm font-bold text-[#14532D]">
                   Image Preview
                 </p>
+
                 <p className="mt-1 text-xs text-gray-500">
                   Your book cover preview.
                 </p>
@@ -311,6 +402,7 @@ export default function AddBookForm() {
         </section>
 
         {/* Description */}
+
         <section>
           <label htmlFor="description" className={labelClass}>
             Book Description *
@@ -334,9 +426,11 @@ export default function AddBookForm() {
         </section>
 
         {/* User Information */}
+
         <section className="rounded-2xl border border-[#D4A853]/30 bg-[#F7F5EF] p-5">
           <div className="mb-4 flex items-center gap-2">
             <UserRound size={19} className="text-[#14532D]" />
+
             <h3 className="font-bold text-[#14532D]">
               Added By
             </h3>
@@ -345,6 +439,7 @@ export default function AddBookForm() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass}>Your Name</label>
+
               <input
                 type="text"
                 value={user.name || ""}
@@ -355,6 +450,7 @@ export default function AddBookForm() {
 
             <div>
               <label className={labelClass}>Your Email</label>
+
               <input
                 type="email"
                 value={user.email || ""}
@@ -366,6 +462,7 @@ export default function AddBookForm() {
         </section>
 
         {/* Submit Button */}
+
         <button
           type="submit"
           disabled={isSubmitting}

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
+import { loginUser, saveToken } from "@/lib/api";
 
 import {
   BookOpen,
@@ -17,7 +17,6 @@ import {
   BookMarked,
   Mail,
   ShieldCheck,
-  UserRound,
   X,
   BookCopy,
 } from "lucide-react";
@@ -53,21 +52,23 @@ export default function SigninForm() {
     setLoading(true);
 
     try {
-      const { error } = await authClient.signIn.email({
-        email,
+      const result = await loginUser({
+        email: email.trim(),
         password,
-        callbackURL: "/",
       });
 
-      if (error) {
-        setError(error.message || "Invalid email or password.");
-        return;
+      if (!result.token) {
+        throw new Error("Login token was not received.");
       }
 
+      // Save JWT token
+      saveToken(result.token);
+
+      // Redirect after successful login
       router.push("/");
       router.refresh();
     } catch (err) {
-      setError(err.message || "Something went wrong.");
+      setError(err.message || "Invalid email or password.");
     } finally {
       setLoading(false);
     }
@@ -75,23 +76,9 @@ export default function SigninForm() {
 
   // Handle Google Sign In
   const handleGoogleSignin = async () => {
-    setError("");
-    setGoogleLoading(true);
-
-    try {
-      const { error } = await authClient.signIn.social({
-        provider: "google",
-        callbackURL: "/",
-      });
-
-      if (error) {
-        setError(error.message || "Google login failed.");
-        setGoogleLoading(false);
-      }
-    } catch (err) {
-      setError(err.message || "Google login failed.");
-      setGoogleLoading(false);
-    }
+    setError(
+      "Google sign-in is not configured yet. Please use email and password."
+    );
   };
 
   return (
@@ -107,7 +94,7 @@ export default function SigninForm() {
       {/* Main Container */}
       <div className="relative z-10 mx-auto grid w-full max-w-6xl overflow-hidden rounded-[32px] border border-white/80 bg-white shadow-[0_30px_100px_rgba(20,83,45,0.13)] lg:grid-cols-[0.95fr_1.05fr]">
 
-        {/* ================= LEFT BRANDING PANEL ================= */}
+        {/* LEFT BRANDING PANEL */}
         <section className="relative hidden flex-col justify-between overflow-hidden bg-[#103D29] p-10 text-white lg:flex xl:p-14">
 
           {/* Decorative Background */}
@@ -217,7 +204,7 @@ export default function SigninForm() {
 
         </section>
 
-        {/* ================= RIGHT SIGN IN PANEL ================= */}
+        {/* RIGHT SIGN IN PANEL */}
         <Card className="w-full border-0 bg-white p-0 shadow-none">
 
           <CardHeader className="space-y-4 px-6 pb-5 pt-8 sm:px-10 sm:pt-12 lg:px-12">

@@ -19,8 +19,13 @@ import {
 } from "lucide-react";
 
 import { toast } from "react-toastify";
-import { API_URL } from "@/lib/api";
-import { authClient } from "@/lib/auth-client";
+import {
+  API_URL,
+  getToken,
+  getCurrentUser,
+  removeToken,
+  apiRequest,
+} from "@/lib/api";
 
 // Animation Variants
 const fadeUp = {
@@ -84,45 +89,106 @@ export default function BookDetailsContent() {
   const params = useParams();
   const id = params.id;
 
-  // Authentication
-  const { data: session, isPending: sessionLoading } =
-    authClient.useSession();
+  // Authentication States
+  const [user, setUser] = useState(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
 
-  const user = session?.user;
-
-  // States
+  // Book States
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [borrowDays, setBorrowDays] = useState("7");
   const [borrowing, setBorrowing] = useState(false);
 
+  // Check JWT Authentication
+  useEffect(() => {
+    let active = true;
+
+    const checkAuthentication = async () => {
+      try {
+        setSessionLoading(true);
+
+        const token = getToken();
+
+        if (!token) {
+          if (active) setUser(null);
+          return;
+        }
+
+        const result = await getCurrentUser();
+
+        if (!result.success || !result.user) {
+          removeToken();
+          if (active) setUser(null);
+          return;
+        }
+
+        if (active) {
+          setUser(result.user);
+        }
+      } catch (error) {
+        console.error("Authentication Error:", error);
+        removeToken();
+
+        if (active) {
+          setUser(null);
+        }
+      } finally {
+        if (active) {
+          setSessionLoading(false);
+        }
+      }
+    };
+
+    checkAuthentication();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Fetch Book Details
   useEffect(() => {
     if (!id) return;
+
+    let active = true;
 
     const fetchBookDetails = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const response = await fetch(`${API_URL}/books/${id}`);
+        const response = await fetch(`${API_URL}/books/${id}`, {
+          cache: "no-store",
+        });
+
         const result = await response.json();
 
         if (!response.ok || !result.success) {
           throw new Error(result.message || "Book not found");
         }
 
-        setBook(result.data);
+        if (active) {
+          setBook(result.book);
+        }
       } catch (err) {
         console.error("Book Details Error:", err);
-        setError(err.message || "Failed to load book details");
+
+        if (active) {
+          setError(err.message || "Failed to load book details");
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
 
     fetchBookDetails();
+
+    return () => {
+      active = false;
+    };
   }, [id]);
 
   // Book Information
@@ -154,7 +220,7 @@ export default function BookDetailsContent() {
       return;
     }
 
-    if (!user?.email) {
+    if (!getToken() || !user?.email) {
       toast.error("Please login before borrowing a book.");
       return;
     }
@@ -172,26 +238,17 @@ export default function BookDetailsContent() {
     try {
       setBorrowing(true);
 
-      const response = await fetch(`${API_URL}/borrow`, {
+      // JWT token automatically added by apiRequest
+      const result = await apiRequest("/borrow", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
-          bookId: id,
-          userName: user.name || "BookNook User",
-          userEmail: user.email,
-          borrowDays: Number(borrowDays),
+          bookId: book._id,
+          days: Number(borrowDays),
         }),
       });
 
-      const result = await response.json().catch(() => null);
-
-      if (!response.ok || !result?.success) {
-        throw new Error(
-          result?.message ||
-            `Borrow request failed. Server status: ${response.status}`,
-        );
+      if (!result.success) {
+        throw new Error(result.message || "Failed to borrow this book.");
       }
 
       // Update Available Quantity
@@ -199,14 +256,25 @@ export default function BookDetailsContent() {
         ...previousBook,
         availableQuantity: Math.max(
           0,
-          Number(previousBook.availableQuantity ?? 0) - 1,
+          Number(previousBook.availableQuantity ?? 0) - 1
         ),
       }));
 
       toast.success("Book borrowed successfully!");
     } catch (err) {
       console.error("Borrow Error:", err);
-      toast.error(err.message || "Something went wrong.");
+
+      if (
+        err.message?.toLowerCase().includes("unauthorized") ||
+        err.message?.toLowerCase().includes("token") ||
+        err.message?.toLowerCase().includes("expired")
+      ) {
+        removeToken();
+        setUser(null);
+        toast.error("Your session has expired. Please login again.");
+      } else {
+        toast.error(err.message || "Something went wrong.");
+      }
     } finally {
       setBorrowing(false);
     }
@@ -498,10 +566,11 @@ export default function BookDetailsContent() {
                 disabled={
                   borrowing ||
                   availableQuantity <= 0 ||
-                  sessionLoading
+                  sessionLoading ||
+                  !user
                 }
                 whileHover={
-                  !borrowing && availableQuantity > 0
+                  !borrowing && availableQuantity > 0 && user
                     ? { scale: 1.025, y: -3 }
                     : {}
                 }
