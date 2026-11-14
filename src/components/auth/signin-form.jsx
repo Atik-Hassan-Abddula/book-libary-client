@@ -1,11 +1,9 @@
-
+﻿
 "use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loginUser, saveToken } from "@/lib/api";
-import { signIn } from "@/lib/auth-client";
 
 import {
   BookOpen,
@@ -18,9 +16,13 @@ import {
   BookMarked,
   Mail,
   ShieldCheck,
-  X,
   BookCopy,
+  Lock,
+  X,
 } from "lucide-react";
+
+import { loginUser, saveToken } from "@/lib/api";
+import { signIn } from "@/lib/auth-client";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,41 +38,80 @@ import {
 
 import { Separator } from "@/components/ui/separator";
 
+function getSafeCallbackUrl() {
+  if (typeof window === "undefined") return "/";
+
+  const callbackUrl = new URLSearchParams(
+    window.location.search
+  ).get("callbackUrl");
+
+  if (
+    callbackUrl &&
+    callbackUrl.startsWith("/") &&
+    !callbackUrl.startsWith("//")
+  ) {
+    return callbackUrl;
+  }
+
+  return "/";
+}
+
 export default function SigninForm() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // =====================================
-  // EMAIL & PASSWORD SIGN IN
-  // =====================================
+  const handleChange = (e) => {
+    const { name, value } = e.target;
 
-  const handleSignin = async (e) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    if (error) setError("");
+  };
+
+  // Email Login
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
     setError("");
+
+    const email = formData.email.trim().toLowerCase();
+    const password = formData.password;
+
+    if (!email || !password) {
+      setError("Please enter your email and password.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const result = await loginUser({
-        email: email.trim(),
+        email,
         password,
       });
 
-      if (!result.token) {
-        throw new Error("Login token was not received.");
+      if (!result?.success || !result?.token) {
+        throw new Error(
+          result?.message || "Login failed. Please try again."
+        );
       }
 
-      // Save Custom JWT Token
       saveToken(result.token);
 
-      // Redirect after successful login
-      router.push("/");
+      const callbackUrl = getSafeCallbackUrl();
+
+      router.replace(callbackUrl);
       router.refresh();
     } catch (err) {
       console.error("Login Error:", err);
@@ -83,25 +124,29 @@ export default function SigninForm() {
     }
   };
 
-  // =====================================
-  // GOOGLE SOCIAL SIGN IN
-  // =====================================
-
-  const handleGoogleSignin = async () => {
+  // Google Login
+  const handleGoogleLogin = async () => {
     try {
       setError("");
       setGoogleLoading(true);
 
+      const callbackUrl = getSafeCallbackUrl();
+
+      const googleSuccessUrl =
+        `/auth/google-success?callbackUrl=${encodeURIComponent(
+          callbackUrl
+        )}`;
+
       await signIn.social({
         provider: "google",
-        callbackURL: "/",
+        callbackURL: googleSuccessUrl,
         errorCallbackURL: "/login",
       });
     } catch (err) {
-      console.error("Google Sign In Error:", err);
+      console.error("Google Login Error:", err);
 
       setError(
-        err.message || "Google sign-in failed. Please try again."
+        err.message || "Google login failed. Please try again."
       );
 
       setGoogleLoading(false);
@@ -111,35 +156,24 @@ export default function SigninForm() {
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F5F7F2] px-4 py-8 sm:px-6 lg:py-12">
 
-      {/* Background Decorations */}
-
+      {/* Background */}
       <div className="pointer-events-none absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full bg-emerald-200/40 blur-[100px]" />
-
       <div className="pointer-events-none absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-amber-200/40 blur-[100px]" />
-
-      <div className="pointer-events-none absolute right-[12%] top-[15%] h-24 w-24 rounded-full border border-emerald-200/50" />
+      <div className="pointer-events-none absolute left-[12%] top-[20%] h-20 w-20 rotate-12 rounded-3xl border border-emerald-200/50" />
+      <div className="pointer-events-none absolute bottom-[15%] right-[10%] h-24 w-24 rounded-full border border-amber-300/40" />
 
       {/* Main Container */}
-
       <div className="relative z-10 mx-auto grid w-full max-w-6xl overflow-hidden rounded-[32px] border border-white/80 bg-white shadow-[0_30px_100px_rgba(20,83,45,0.13)] lg:grid-cols-[0.95fr_1.05fr]">
 
-        {/* LEFT BRANDING PANEL */}
-
+        {/* LEFT PANEL */}
         <section className="relative hidden flex-col justify-between overflow-hidden bg-[#103D29] p-10 text-white lg:flex xl:p-14">
 
-          {/* Decorative Background */}
-
           <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full border border-white/10" />
-
           <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full border border-white/10" />
-
           <div className="absolute -bottom-40 -left-32 h-[450px] w-[450px] rounded-full bg-emerald-400/10 blur-3xl" />
-
           <div className="absolute right-12 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#D4A853]/10 blur-[80px]" />
 
-          {/* Brand */}
-
-          <div className="relative z-10 flex items-center gap-3">
+          <Link href="/" className="relative z-10 flex items-center gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#D4A853] text-[#14251B] shadow-xl shadow-black/20">
               <BookOpen size={30} strokeWidth={2.2} />
             </div>
@@ -148,14 +182,11 @@ export default function SigninForm() {
               <h2 className="text-2xl font-black tracking-tight">
                 BookNook
               </h2>
-
               <p className="text-[10px] font-semibold tracking-[0.28em] text-emerald-100/60">
                 YOUR READING SPACE
               </p>
             </div>
-          </div>
-
-          {/* Main Content */}
+          </Link>
 
           <div className="relative z-10 my-12">
 
@@ -173,11 +204,9 @@ export default function SigninForm() {
 
             <p className="mt-6 max-w-md text-sm leading-8 text-emerald-100/70 xl:text-base">
               Pick up where you left off. Explore your
-              library, discover new stories and continue
-              your reading adventure with BookNook.
+              favorite books, discover new stories and
+              continue your reading journey.
             </p>
-
-            {/* Feature Cards */}
 
             <div className="mt-10 space-y-4">
 
@@ -187,10 +216,7 @@ export default function SigninForm() {
                 </div>
 
                 <div>
-                  <h3 className="font-bold">
-                    Your Personal Library
-                  </h3>
-
+                  <h3 className="font-bold">Your Personal Library</h3>
                   <p className="mt-1 text-xs text-emerald-100/55">
                     All your favorite books in one place.
                   </p>
@@ -203,26 +229,37 @@ export default function SigninForm() {
                 </div>
 
                 <div>
-                  <h3 className="font-bold">
-                    Continue Reading
-                  </h3>
-
+                  <h3 className="font-bold">Borrow & Discover</h3>
                   <p className="mt-1 text-xs text-emerald-100/55">
-                    Every page brings a new discovery.
+                    Discover your next favorite read.
                   </p>
                 </div>
               </div>
 
             </div>
-          </div>
 
-          {/* Bottom Footer */}
+            <div className="relative mt-10 flex h-28 items-center justify-center gap-3">
+
+              <div className="flex h-24 w-16 -rotate-12 items-center justify-center rounded-lg border-l-4 border-[#E9C77E] bg-gradient-to-br from-[#D4A853] to-[#A87929] shadow-xl">
+                <BookOpen size={27} className="text-white" />
+              </div>
+
+              <div className="flex h-28 w-20 rotate-6 items-center justify-center rounded-lg border-l-4 border-emerald-200 bg-gradient-to-br from-emerald-500 to-emerald-800 shadow-xl">
+                <Library size={30} className="text-white" />
+              </div>
+
+              <div className="flex h-20 w-14 rotate-12 items-center justify-center rounded-lg border-l-4 border-amber-200 bg-gradient-to-br from-amber-400 to-amber-700 shadow-xl">
+                <BookMarked size={23} className="text-white" />
+              </div>
+
+            </div>
+          </div>
 
           <div className="relative z-10 border-t border-white/10 pt-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-[#D4A853]">
-                  "Reading is a journey, not a destination."
+                  "A reader lives a thousand lives."
                 </p>
 
                 <p className="mt-2 text-[10px] tracking-wide text-emerald-100/40">
@@ -230,24 +267,20 @@ export default function SigninForm() {
                 </p>
               </div>
 
-              <BookCopy
-                size={32}
-                className="text-white/20"
-              />
+              <BookCopy size={32} className="text-white/20" />
             </div>
           </div>
-
         </section>
 
-        {/* RIGHT SIGN IN PANEL */}
-
+        {/* RIGHT PANEL */}
         <Card className="w-full border-0 bg-white p-0 shadow-none">
 
           <CardHeader className="space-y-4 px-6 pb-5 pt-8 sm:px-10 sm:pt-12 lg:px-12">
 
-            {/* Mobile Brand */}
-
-            <div className="mb-3 flex items-center gap-3 lg:hidden">
+            <Link
+              href="/"
+              className="mb-3 flex items-center gap-3 lg:hidden"
+            >
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#14532D] text-[#D4A853] shadow-lg">
                 <BookOpen size={26} />
               </div>
@@ -256,44 +289,45 @@ export default function SigninForm() {
                 <h2 className="text-xl font-black text-[#14532D]">
                   BookNook
                 </h2>
-
                 <p className="text-[10px] font-semibold tracking-[0.2em] text-gray-400">
                   YOUR READING SPACE
                 </p>
               </div>
-            </div>
-
-            {/* Welcome Badge */}
+            </Link>
 
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3.5 py-2 text-[10px] font-extrabold tracking-[0.12em] text-emerald-800">
               <Sparkles size={13} />
-              WELCOME BACK
+              YOUR LIBRARY IS WAITING
             </div>
-
-            {/* Heading */}
 
             <div>
               <CardTitle className="text-3xl font-black tracking-tight text-[#14251B] sm:text-4xl">
-                Sign In
+                Welcome Back
                 <span className="text-[#D4A853]">.</span>
               </CardTitle>
 
               <CardDescription className="mt-3 max-w-sm text-sm leading-6 text-gray-500">
-                Welcome back to your reading space.
-                Sign in and continue your journey.
+                Sign in to your account and continue
+                your reading journey with BookNook.
               </CardDescription>
             </div>
-
           </CardHeader>
 
           <CardContent className="px-6 pb-9 sm:px-10 lg:px-12 lg:pb-12">
 
-            {/* EMAIL LOGIN FORM */}
+            {error && (
+              <div
+                role="alert"
+                className="mb-5 flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-3.5 text-sm text-red-600"
+              >
+                <X size={17} className="mt-0.5 shrink-0" />
+                <p>{error}</p>
+              </div>
+            )}
 
-            <form onSubmit={handleSignin} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5">
 
               {/* Email */}
-
               <div className="space-y-2">
                 <Label
                   htmlFor="email"
@@ -313,32 +347,26 @@ export default function SigninForm() {
                     name="email"
                     type="email"
                     placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (error) setError("");
-                    }}
-                    required
+                    value={formData.email}
+                    onChange={handleChange}
                     autoComplete="email"
+                    required
                     className="h-12 rounded-xl border-gray-200 bg-[#FAFBF9] pl-11 pr-4 text-sm transition-all placeholder:text-gray-400 focus-visible:border-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-700/10"
                   />
                 </div>
               </div>
 
               {/* Password */}
-
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="password"
-                    className="text-xs font-bold tracking-wide text-[#263C2E]"
-                  >
-                    PASSWORD
-                  </Label>
-                </div>
+                <Label
+                  htmlFor="password"
+                  className="text-xs font-bold tracking-wide text-[#263C2E]"
+                >
+                  PASSWORD
+                </Label>
 
                 <div className="group relative">
-                  <ShieldCheck
+                  <Lock
                     size={18}
                     className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-emerald-700"
                   />
@@ -348,58 +376,23 @@ export default function SigninForm() {
                     name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      if (error) setError("");
-                    }}
-                    required
+                    value={formData.password}
+                    onChange={handleChange}
                     autoComplete="current-password"
+                    required
                     className="h-12 rounded-xl border-gray-200 bg-[#FAFBF9] pl-11 pr-12 text-sm transition-all placeholder:text-gray-400 focus-visible:border-emerald-700 focus-visible:ring-4 focus-visible:ring-emerald-700/10"
                   />
 
                   <button
                     type="button"
-                    onClick={() =>
-                      setShowPassword((prev) => !prev)
-                    }
+                    onClick={() => setShowPassword((prev) => !prev)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 transition-colors hover:text-emerald-800"
-                    aria-label={
-                      showPassword
-                        ? "Hide password"
-                        : "Show password"
-                    }
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
-                    {showPassword ? (
-                      <EyeOff size={19} />
-                    ) : (
-                      <Eye size={19} />
-                    )}
+                    {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
                   </button>
                 </div>
-
-                <p className="text-[11px] text-gray-400">
-                  Enter the password associated with your account.
-                </p>
               </div>
-
-              {/* Error Message */}
-
-              {error && (
-                <div
-                  role="alert"
-                  className="flex items-start gap-3 rounded-xl border border-red-100 bg-red-50 p-3.5 text-sm text-red-600"
-                >
-                  <X
-                    size={17}
-                    className="mt-0.5 shrink-0"
-                  />
-
-                  <p>{error}</p>
-                </div>
-              )}
-
-              {/* Sign In Button */}
 
               <Button
                 type="submit"
@@ -413,34 +406,29 @@ export default function SigninForm() {
                   </>
                 ) : (
                   <>
-                    Sign In
+                    Sign In to Your Account
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </>
                 )}
               </Button>
-
             </form>
 
             {/* Separator */}
-
             <div className="my-6 flex items-center gap-4">
               <Separator className="flex-1 bg-gray-200" />
-
               <span className="whitespace-nowrap text-[10px] font-bold tracking-[0.15em] text-gray-400">
                 OR CONTINUE WITH
               </span>
-
               <Separator className="flex-1 bg-gray-200" />
             </div>
 
-            {/* GOOGLE SIGN IN */}
-
+            {/* Google Login */}
             <Button
               type="button"
               variant="outline"
               disabled={loading || googleLoading}
               className="h-12 w-full rounded-xl border-gray-200 bg-white font-bold text-gray-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50 disabled:opacity-60"
-              onClick={handleGoogleSignin}
+              onClick={handleGoogleLogin}
             >
               {googleLoading ? (
                 <>
@@ -449,41 +437,14 @@ export default function SigninForm() {
                 </>
               ) : (
                 <>
-                  <svg
-                    viewBox="0 0 48 48"
-                    className="mr-2 h-5 w-5"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fill="#EA4335"
-                      d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-                    />
-
-                    <path
-                      fill="#4285F4"
-                      d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.74 7.18l7.73 6C44.43 37.97 46.98 31.89 46.98 24.55z"
-                    />
-
-                    <path
-                      fill="#FBBC05"
-                      d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19z"
-                    />
-
-                    <path
-                      fill="#34A853"
-                      d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.15 1.45-4.89 2.3-8.18 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-                    />
-                  </svg>
-
+                  <GoogleIcon />
                   Continue with Google
                 </>
               )}
             </Button>
 
-            {/* Signup Link */}
-
             <p className="mt-7 text-center text-sm text-gray-500">
-              Don&apos;t have an account?{" "}
+              Don't have an account?{" "}
               <Link
                 href="/register"
                 className="font-extrabold text-emerald-800 transition-colors hover:text-[#D4A853] hover:underline"
@@ -492,23 +453,52 @@ export default function SigninForm() {
               </Link>
             </p>
 
-            {/* Bottom Note */}
-
             <div className="mt-6 flex items-center justify-center gap-2 border-t border-gray-100 pt-5">
-              <ShieldCheck
-                size={14}
-                className="text-emerald-700"
-              />
-
+              <ShieldCheck size={14} className="text-emerald-700" />
               <p className="text-center text-[10px] font-medium text-gray-400">
-                Your reading journey is safe with BookNook.
+                Your account is protected with secure authentication.
               </p>
+            </div>
+
+            <div className="mt-5 text-center">
+              <Link
+                href="/"
+                className="text-sm font-medium text-gray-400 transition-colors hover:text-emerald-800"
+              >
+                ← Back to Home
+              </Link>
             </div>
 
           </CardContent>
         </Card>
-
       </div>
     </main>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      className="mr-2 h-5 w-5"
+      aria-hidden="true"
+    >
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.74 7.18l7.73 6C44.43 37.97 46.98 31.89 46.98 24.55z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.9 23.9 0 0 0 0 24c0 3.87.93 7.52 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.15 1.45-4.89 2.3-8.18 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </svg>
   );
 }

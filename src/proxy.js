@@ -15,12 +15,13 @@ export function proxy(request) {
 
   const isProtectedRoute = protectedRoutes.some(
     (route) =>
-      pathname === route ||
-      pathname.startsWith(`${route}/`)
+      pathname === route || pathname.startsWith(`${route}/`)
   );
 
+  // Redirect unauthenticated users to login
   if (isProtectedRoute && !token) {
     const loginUrl = new URL("/login", request.url);
+
     loginUrl.searchParams.set("callbackUrl", pathname);
 
     return NextResponse.redirect(loginUrl);

@@ -1,88 +1,87 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-
 import {
   BookOpen,
   Menu,
   X,
-  ChevronDown,
   UserRound,
   LogOut,
+  Plus,
+  Library,
+  BookMarked,
+  ChevronDown,
   Loader2,
 } from "lucide-react";
-
 import { toast } from "react-toastify";
+
 import {
   getToken,
   getCurrentUser,
   removeToken,
 } from "@/lib/api";
 
-const publicLinks = [
-  { name: "Home", href: "/" },
-  { name: "All Books", href: "/books" },
-];
-
-const privateLinks = [
-  { name: "Add Book", href: "/add-book" },
-  { name: "My Books", href: "/my-books" },
-  { name: "My Borrows", href: "/my-borrows" },
-];
+import { useSession, signOut } from "@/lib/auth-client";
 
 export default function Navbar() {
-  const router = useRouter();
   const pathname = usePathname();
+  const router = useRouter();
+
+  const {
+    data: sessionData,
+    isPending: sessionPending,
+  } = useSession();
 
   const [user, setUser] = useState(null);
   const [isPending, setIsPending] = useState(true);
-
+  const [loggingOut, setLoggingOut] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
 
-  const desktopProfileRef = useRef(null);
-  const mobileProfileRef = useRef(null);
+  // =====================================
+  // CHECK AUTHENTICATED USER
+  // =====================================
 
-  const isLoggedIn = Boolean(user);
-
-  const navLinks = isLoggedIn
-    ? [...publicLinks, ...privateLinks]
-    : publicLinks;
-
-  // Verify JWT and get current user
   useEffect(() => {
     let isMounted = true;
 
     const checkUser = async () => {
-      if (!getToken()) {
-        if (isMounted) {
-          setUser(null);
-          setIsPending(false);
+      if (sessionPending) return;
+
+      const googleUser = sessionData?.user || null;
+
+      // Custom JWT Login
+      if (getToken()) {
+        try {
+          const result = await getCurrentUser();
+
+          if (isMounted) {
+            setUser(result.user || googleUser);
+          }
+        } catch (error) {
+          console.error("JWT Authentication Error:", error);
+
+          removeToken();
+
+          if (isMounted) {
+            setUser(googleUser);
+          }
+        } finally {
+          if (isMounted) {
+            setIsPending(false);
+          }
         }
+
         return;
       }
 
-      try {
-        const result = await getCurrentUser();
-
-        if (isMounted) {
-          setUser(result.user || null);
-        }
-      } catch (error) {
-        console.error("Authentication Error:", error);
-
-        removeToken();
-
-        if (isMounted) {
-          setUser(null);
-        }
-      } finally {
-        if (isMounted) {
-          setIsPending(false);
-        }
+      // Google Login
+      if (isMounted) {
+        setUser(googleUser);
+        setIsPending(false);
       }
     };
 
@@ -92,52 +91,22 @@ export default function Navbar() {
     return () => {
       isMounted = false;
     };
-  }, [pathname]);
+  }, [pathname, sessionData, sessionPending]);
 
-  // Close menus after navigation
-  useEffect(() => {
-    setMobileMenuOpen(false);
-    setProfileOpen(false);
-  }, [pathname]);
+  // =====================================
+  // LOGOUT
+  // =====================================
 
-  // Close dropdown on outside click and Escape
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      const clickedInsideDesktop =
-        desktopProfileRef.current?.contains(event.target);
-
-      const clickedInsideMobile =
-        mobileProfileRef.current?.contains(event.target);
-
-      if (!clickedInsideDesktop && !clickedInsideMobile) {
-        setProfileOpen(false);
-      }
-    };
-
-    const handleEscape = (event) => {
-      if (event.key === "Escape") {
-        setProfileOpen(false);
-        setMobileMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, []);
-
-  // Logout
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
     if (loggingOut) return;
 
     try {
       setLoggingOut(true);
 
       removeToken();
+
+      await signOut();
+
       setUser(null);
       setProfileOpen(false);
       setMobileMenuOpen(false);
@@ -148,294 +117,336 @@ export default function Navbar() {
       router.refresh();
     } catch (error) {
       console.error("Logout Error:", error);
-      toast.error(error.message || "Logout failed!");
+
+      removeToken();
+      setUser(null);
+
+      toast.error(
+        error.message || "Logout failed. Please try again."
+      );
+
+      router.replace("/login");
+      router.refresh();
     } finally {
       setLoggingOut(false);
     }
   };
 
-  // Active link checker
-  const isActiveLink = (href) => {
-    if (href === "/") {
-      return pathname === "/";
-    }
+  // =====================================
+  // CLOSE MENUS
+  // =====================================
 
-    return pathname === href || pathname.startsWith(`${href}/`);
+  const closeMenus = () => {
+    setMobileMenuOpen(false);
+    setProfileOpen(false);
   };
 
-  // Navigation links
-  const renderNavLinks = (mobile = false) => (
-    <>
-      {navLinks.map((link) => {
-        const active = isActiveLink(link.href);
+  // =====================================
+  // AVATAR
+  // =====================================
 
-        return (
-          <Link
-            key={link.href}
-            href={link.href}
-            onClick={() => {
-              if (mobile) setMobileMenuOpen(false);
-            }}
-            className={`relative rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-300 ${
-              active
-                ? "bg-[#14532D]/10 text-[#14532D]"
-                : "text-gray-700 hover:bg-[#14532D]/10 hover:text-[#14532D]"
-            }`}
-          >
-            {link.name}
-          </Link>
-        );
-      })}
-    </>
-  );
+  const renderUserAvatar = (size = "h-10 w-10") => {
+    const imageUrl =
+      user?.image ||
+      user?.picture ||
+      user?.photoURL ||
+      user?.avatar ||
+      "";
 
-  // User avatar
-  const renderUserAvatar = (size = "h-9 w-9") => {
-    if (user?.image) {
+    if (imageUrl) {
       return (
         <img
-          src={user.image}
-          alt={user.name || "User"}
-          className={`${size} rounded-full object-cover`}
+          src={imageUrl}
+          alt={user?.name || "User"}
+          referrerPolicy="no-referrer"
+          className={`${size} shrink-0 rounded-full border-2 border-white object-cover shadow-sm`}
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+            event.currentTarget.nextElementSibling?.classList.remove("hidden");
+          }}
         />
       );
     }
 
     return (
       <div
-        className={`${size} flex items-center justify-center rounded-full bg-[#14532D] font-bold text-white`}
+        className={`${size} flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-800 font-bold text-white shadow-sm`}
       >
         {user?.name?.charAt(0)?.toUpperCase() || "U"}
       </div>
     );
   };
 
-  // Profile dropdown
-  const renderProfileDropdown = () => (
-    <div className="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
-      <div className="border-b border-gray-100 bg-[#F7F5EF] p-4">
-        <p className="truncate font-bold text-[#14532D]">
-          {user?.name || "BookNook User"}
-        </p>
+  // =====================================
+  // NAVIGATION LINKS
+  // =====================================
 
-        <p className="mt-1 truncate text-xs text-gray-500">
-          {user?.email}
-        </p>
-      </div>
+  const navLinks = [
+    {
+      name: "Home",
+      href: "/",
+      icon: BookOpen,
+    },
+    {
+      name: "All Books",
+      href: "/books",
+      icon: Library,
+    },
+    ...(user
+      ? [
+          {
+            name: "Add Book",
+            href: "/add-book",
+            icon: Plus,
+          },
+          {
+            name: "My Books",
+            href: "/my-books",
+            icon: BookMarked,
+          },
+          {
+            name: "My Borrows",
+            href: "/my-borrows",
+            icon: Library,
+          },
+        ]
+      : []),
+  ];
 
-      <div className="p-2">
-        <Link
-          href="/profile"
-          onClick={() => setProfileOpen(false)}
-          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 hover:text-[#14532D]"
-        >
-          <UserRound size={18} />
-          My Profile
-        </Link>
+  const isActive = (href) => {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={loggingOut}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-60"
-        >
-          {loggingOut ? (
-            <Loader2 size={18} className="animate-spin" />
-          ) : (
-            <LogOut size={18} />
-          )}
-
-          {loggingOut ? "Signing Out..." : "Logout"}
-        </button>
-      </div>
-    </div>
-  );
+  // =====================================
+  // RENDER
+  // =====================================
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-200 bg-[#F7F5EF]/95 shadow-sm backdrop-blur-md">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-50 w-full border-b border-emerald-100 bg-white/95 shadow-sm backdrop-blur-md">
+      <nav className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
 
-        {/* Logo */}
-        <Link href="/" className="flex shrink-0 items-center gap-2">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#14532D] text-white shadow-md">
-            <BookOpen size={25} />
+        {/* LOGO */}
+        <Link
+          href="/"
+          onClick={closeMenus}
+          className="group flex shrink-0 items-center gap-2"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-700 text-white shadow-md transition group-hover:bg-emerald-800">
+            <BookOpen size={23} />
           </div>
 
           <div>
-            <h1 className="text-xl font-extrabold tracking-tight text-[#14532D] sm:text-2xl">
-              BookNook
+            <h1 className="text-xl font-extrabold tracking-tight text-gray-900">
+              Book<span className="text-emerald-700">Nook</span>
             </h1>
-
-            <p className="text-[10px] font-medium tracking-widest text-gray-500">
-              YOUR ONLINE LIBRARY
+            <p className="hidden text-[10px] font-medium tracking-widest text-gray-500 sm:block">
+              YOUR PERSONAL LIBRARY
             </p>
           </div>
         </Link>
 
-        {/* Desktop Navigation */}
-        <nav className="hidden items-center gap-1 lg:flex">
-          {renderNavLinks()}
-        </nav>
+        {/* DESKTOP NAVIGATION */}
+        <div className="hidden items-center gap-1 lg:flex">
+          {navLinks.map((link) => {
+            const Icon = link.icon;
 
-        {/* Desktop Authentication */}
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition ${
+                  isActive(link.href)
+                    ? "bg-emerald-50 text-emerald-800"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-emerald-700"
+                }`}
+              >
+                <Icon size={17} />
+                {link.name}
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* DESKTOP AUTH */}
         <div className="hidden items-center gap-3 lg:flex">
-          {!isPending && !isLoggedIn && (
-            <>
-              <Link
-                href="/login"
-                className="rounded-lg border border-[#14532D] px-5 py-2.5 text-sm font-semibold text-[#14532D] transition hover:bg-[#14532D] hover:text-white"
-              >
-                Login
-              </Link>
-
-              <Link
-                href="/register"
-                className="rounded-lg bg-[#14532D] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#D4A853] hover:text-[#14251B]"
-              >
-                Register
-              </Link>
-            </>
-          )}
-
-          {!isPending && isLoggedIn && (
-            <div className="relative" ref={desktopProfileRef}>
+          {isPending ? (
+            <Loader2 className="animate-spin text-emerald-700" size={22} />
+          ) : user ? (
+            <div className="relative">
               <button
-                type="button"
-                onClick={() => setProfileOpen((prev) => !prev)}
-                aria-label="Open user menu"
-                aria-expanded={profileOpen}
-                className="flex items-center gap-2 rounded-full border border-gray-200 bg-white p-1.5 pr-3 transition hover:border-[#14532D]"
+                onClick={() => setProfileOpen(!profileOpen)}
+                className="flex items-center gap-2 rounded-full border border-gray-200 bg-white p-1.5 pr-3 transition hover:border-emerald-300 hover:shadow-sm"
               >
-                {renderUserAvatar()}
+                {renderUserAvatar("h-9 w-9")}
 
-                <span className="max-w-24 truncate text-sm font-semibold text-gray-700">
-                  {user?.name || "Account"}
+                <span className="max-w-28 truncate text-sm font-semibold text-gray-700">
+                  {user.name || "My Account"}
                 </span>
 
                 <ChevronDown
                   size={16}
-                  className={`text-gray-500 transition-transform ${
+                  className={`text-gray-500 transition ${
                     profileOpen ? "rotate-180" : ""
                   }`}
                 />
               </button>
 
-              {profileOpen && renderProfileDropdown()}
+              {profileOpen && (
+                <div className="absolute right-0 top-14 z-50 w-60 overflow-hidden rounded-xl border border-gray-100 bg-white p-2 shadow-xl">
+                  <div className="flex items-center gap-3 border-b border-gray-100 px-3 py-3">
+                    {renderUserAvatar("h-10 w-10")}
+
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-gray-800">
+                        {user.name || "User"}
+                      </p>
+                      <p className="truncate text-xs text-gray-500">
+                        {user.email}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Link
+                    href="/profile"
+                    onClick={closeMenus}
+                    className="mt-2 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-emerald-50 hover:text-emerald-700"
+                  >
+                    <UserRound size={17} />
+                    My Profile
+                  </Link>
+
+                  <button
+                    onClick={handleSignOut}
+                    disabled={loggingOut}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {loggingOut ? (
+                      <Loader2 size={17} className="animate-spin" />
+                    ) : (
+                      <LogOut size={17} />
+                    )}
+                    {loggingOut ? "Logging out..." : "Sign Out"}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-
-          {isPending && (
-            <Loader2
-              className="animate-spin text-[#14532D]"
-              size={22}
-            />
-          )}
-        </div>
-
-        {/* Mobile Actions */}
-        <div className="flex items-center gap-2 lg:hidden">
-          {!isPending && isLoggedIn && (
-            <div className="relative" ref={mobileProfileRef}>
-              <button
-                type="button"
-                onClick={() => setProfileOpen((prev) => !prev)}
-                aria-label="Open user menu"
-                aria-expanded={profileOpen}
-                className="rounded-full border-2 border-[#14532D] p-0.5"
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="rounded-lg px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
               >
-                {renderUserAvatar()}
-              </button>
+                Sign In
+              </Link>
 
-              {profileOpen && renderProfileDropdown()}
-            </div>
+              <Link
+                href="/register"
+                className="rounded-lg bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-800"
+              >
+                Sign Up
+              </Link>
+            </>
           )}
-
-          {isPending && (
-            <Loader2
-              className="animate-spin text-[#14532D]"
-              size={21}
-            />
-          )}
-
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileMenuOpen}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-[#14532D] transition hover:bg-[#14532D]/10"
-          >
-            {mobileMenuOpen ? (
-              <X size={26} />
-            ) : (
-              <Menu size={26} />
-            )}
-          </button>
         </div>
-      </div>
 
-      {/* Mobile Navigation */}
-      <div
-        className={`overflow-hidden border-t border-gray-200 bg-[#F7F5EF] transition-all duration-300 lg:hidden ${
-          mobileMenuOpen
-            ? "max-h-[600px] opacity-100"
-            : "max-h-0 border-t-0 opacity-0"
-        }`}
-      >
-        <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-4 sm:px-6">
-          {renderNavLinks(true)}
+        {/* MOBILE MENU BUTTON */}
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-700 transition hover:bg-emerald-50 lg:hidden"
+          aria-label="Toggle navigation menu"
+        >
+          {mobileMenuOpen ? <X size={25} /> : <Menu size={25} />}
+        </button>
+      </nav>
 
-          <div className="mt-3 border-t border-gray-200 pt-4">
-            {!isPending && !isLoggedIn && (
-              <div className="flex gap-3">
+      {/* MOBILE MENU */}
+      {mobileMenuOpen && (
+        <div className="absolute left-0 top-full w-full border-t border-gray-100 bg-white px-4 pb-5 pt-3 shadow-lg lg:hidden">
+          <div className="mx-auto max-w-7xl space-y-1">
+
+            {navLinks.map((link) => {
+              const Icon = link.icon;
+
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={closeMenus}
+                  className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-semibold transition ${
+                    isActive(link.href)
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  <Icon size={19} />
+                  {link.name}
+                </Link>
+              );
+            })}
+
+            <div className="my-3 border-t border-gray-100" />
+
+            {isPending ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="animate-spin text-emerald-700" />
+              </div>
+            ) : user ? (
+              <>
+                <Link
+                  href="/profile"
+                  onClick={closeMenus}
+                  className="flex items-center gap-3 rounded-lg p-3 transition hover:bg-emerald-50"
+                >
+                  {renderUserAvatar("h-11 w-11")}
+
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-gray-800">
+                      {user.name || "My Account"}
+                    </p>
+                    <p className="truncate text-xs text-gray-500">
+                      {user.email}
+                    </p>
+                  </div>
+
+                  <UserRound size={19} className="text-gray-500" />
+                </Link>
+
+                <button
+                  onClick={handleSignOut}
+                  disabled={loggingOut}
+                  className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                >
+                  {loggingOut ? (
+                    <Loader2 size={19} className="animate-spin" />
+                  ) : (
+                    <LogOut size={19} />
+                  )}
+                  {loggingOut ? "Logging out..." : "Sign Out"}
+                </button>
+              </>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 pt-2">
                 <Link
                   href="/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex-1 rounded-lg border border-[#14532D] px-4 py-2.5 text-center text-sm font-semibold text-[#14532D] transition hover:bg-[#14532D] hover:text-white"
+                  onClick={closeMenus}
+                  className="rounded-lg border border-emerald-700 py-3 text-center text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
                 >
-                  Login
+                  Sign In
                 </Link>
 
                 <Link
                   href="/register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex-1 rounded-lg bg-[#14532D] px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-[#D4A853] hover:text-[#14251B]"
+                  onClick={closeMenus}
+                  className="rounded-lg bg-emerald-700 py-3 text-center text-sm font-bold text-white transition hover:bg-emerald-800"
                 >
-                  Register
+                  Sign Up
                 </Link>
               </div>
             )}
-
-            {!isPending && isLoggedIn && (
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-[#14532D]">
-                    {user?.name || "BookNook User"}
-                  </p>
-
-                  <p className="truncate text-xs text-gray-500">
-                    {user?.email}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  disabled={loggingOut}
-                  className="flex shrink-0 items-center gap-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100 disabled:opacity-60"
-                >
-                  {loggingOut ? (
-                    <Loader2 size={17} className="animate-spin" />
-                  ) : (
-                    <LogOut size={17} />
-                  )}
-
-                  {loggingOut ? "Signing Out..." : "Logout"}
-                </button>
-              </div>
-            )}
           </div>
-        </nav>
-      </div>
+        </div>
+      )}
     </header>
   );
 }
