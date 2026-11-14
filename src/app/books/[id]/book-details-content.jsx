@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { toast } from "react-toastify";
+
 import {
   API_URL,
   getToken,
@@ -27,7 +28,10 @@ import {
   apiRequest,
 } from "@/lib/api";
 
-// Animation Variants
+// =====================================
+// ANIMATION VARIANTS
+// =====================================
+
 const fadeUp = {
   hidden: { opacity: 0, y: 35 },
   visible: {
@@ -85,33 +89,48 @@ const itemVariant = {
   },
 };
 
+// =====================================
+// BOOK DETAILS COMPONENT
+// =====================================
+
 export default function BookDetailsContent() {
   const params = useParams();
   const id = params.id;
 
-  // Authentication States
+  // =====================================
+  // AUTHENTICATION STATES
+  // =====================================
+
   const [user, setUser] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(true);
 
-  // Book States
+  // =====================================
+  // BOOK STATES
+  // =====================================
+
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [borrowDays, setBorrowDays] = useState("7");
   const [borrowing, setBorrowing] = useState(false);
 
-  // Check JWT Authentication
+  // =====================================
+  // CHECK AUTHENTICATION
+  // DETAILS PAGE IS PUBLIC
+  // =====================================
+
   useEffect(() => {
     let active = true;
 
     const checkAuthentication = async () => {
       try {
-        setSessionLoading(true);
-
         const token = getToken();
 
         if (!token) {
-          if (active) setUser(null);
+          if (active) {
+            setUser(null);
+            setSessionLoading(false);
+          }
           return;
         }
 
@@ -119,7 +138,11 @@ export default function BookDetailsContent() {
 
         if (!result.success || !result.user) {
           removeToken();
-          if (active) setUser(null);
+
+          if (active) {
+            setUser(null);
+          }
+
           return;
         }
 
@@ -128,6 +151,7 @@ export default function BookDetailsContent() {
         }
       } catch (error) {
         console.error("Authentication Error:", error);
+
         removeToken();
 
         if (active) {
@@ -147,38 +171,48 @@ export default function BookDetailsContent() {
     };
   }, []);
 
-  // Fetch Book Details
+  // =====================================
+  // FETCH BOOK DETAILS
+  // =====================================
+
   useEffect(() => {
     if (!id) return;
 
-    let active = true;
+    const controller = new AbortController();
 
     const fetchBookDetails = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const response = await fetch(`${API_URL}/books/${id}`, {
-          cache: "no-store",
-        });
+        const response = await fetch(
+          `${API_URL}/books/${id}`,
+          {
+            method: "GET",
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        );
 
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-          throw new Error(result.message || "Book not found");
+          throw new Error(
+            result.message || "Book not found."
+          );
         }
 
-        if (active) {
-          setBook(result.book);
-        }
+        setBook(result.book);
       } catch (err) {
+        if (err.name === "AbortError") return;
+
         console.error("Book Details Error:", err);
 
-        if (active) {
-          setError(err.message || "Failed to load book details");
-        }
+        setError(
+          err.message || "Failed to load book details."
+        );
       } finally {
-        if (active) {
+        if (!controller.signal.aborted) {
           setLoading(false);
         }
       }
@@ -187,16 +221,28 @@ export default function BookDetailsContent() {
     fetchBookDetails();
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [id]);
 
-  // Book Information
-  const availableQuantity = Number(book?.availableQuantity ?? 0);
-  const totalQuantity = Number(book?.quantity ?? 0);
+  // =====================================
+  // BOOK INFORMATION
+  // =====================================
+
+  const availableQuantity = Number(
+    book?.availableQuantity ?? 0
+  );
+
+  const totalQuantity = Number(
+    book?.quantity ?? 0
+  );
+
   const image = book?.imageUrl || book?.image;
 
-  // Format Date
+  // =====================================
+  // FORMAT DATE
+  // =====================================
+
   const formatDate = (dateValue) => {
     if (!dateValue) return "Date unavailable";
 
@@ -213,15 +259,25 @@ export default function BookDetailsContent() {
     });
   };
 
-  // Handle Borrow Book
+  // =====================================
+  // HANDLE BORROW
+  // =====================================
+
   const handleBorrow = async () => {
     if (sessionLoading) {
       toast.info("Please wait. Checking your account...");
       return;
     }
 
+    // Login Required Only For Borrowing
+
     if (!getToken() || !user?.email) {
-      toast.error("Please login before borrowing a book.");
+      toast.info("Please login before borrowing a book.");
+
+      window.location.href = `/login?callbackUrl=${encodeURIComponent(
+        `/books/${book._id}`
+      )}`;
+
       return;
     }
 
@@ -238,7 +294,6 @@ export default function BookDetailsContent() {
     try {
       setBorrowing(true);
 
-      // JWT token automatically added by apiRequest
       const result = await apiRequest("/borrow", {
         method: "POST",
         body: JSON.stringify({
@@ -248,10 +303,13 @@ export default function BookDetailsContent() {
       });
 
       if (!result.success) {
-        throw new Error(result.message || "Failed to borrow this book.");
+        throw new Error(
+          result.message || "Failed to borrow this book."
+        );
       }
 
       // Update Available Quantity
+
       setBook((previousBook) => ({
         ...previousBook,
         availableQuantity: Math.max(
@@ -264,23 +322,35 @@ export default function BookDetailsContent() {
     } catch (err) {
       console.error("Borrow Error:", err);
 
+      const message = err.message?.toLowerCase() || "";
+
       if (
-        err.message?.toLowerCase().includes("unauthorized") ||
-        err.message?.toLowerCase().includes("token") ||
-        err.message?.toLowerCase().includes("expired")
+        message.includes("unauthorized") ||
+        message.includes("token") ||
+        message.includes("expired")
       ) {
         removeToken();
         setUser(null);
+
         toast.error("Your session has expired. Please login again.");
+
+        window.location.href = `/login?callbackUrl=${encodeURIComponent(
+          `/books/${book._id}`
+        )}`;
       } else {
-        toast.error(err.message || "Something went wrong.");
+        toast.error(
+          err.message || "Something went wrong."
+        );
       }
     } finally {
       setBorrowing(false);
     }
   };
 
-  // Loading State
+  // =====================================
+  // LOADING STATE
+  // =====================================
+
   if (loading) {
     return (
       <motion.div
@@ -289,7 +359,11 @@ export default function BookDetailsContent() {
         className="flex min-h-[70vh] items-center justify-center"
       >
         <div className="text-center">
-          <Loader2 className="mx-auto animate-spin text-primary" size={45} />
+          <Loader2
+            className="mx-auto animate-spin text-primary"
+            size={45}
+          />
+
           <p className="mt-4 text-base-content/60">
             Loading book details...
           </p>
@@ -298,7 +372,10 @@ export default function BookDetailsContent() {
     );
   }
 
-  // Error State
+  // =====================================
+  // ERROR STATE
+  // =====================================
+
   if (error || !book) {
     return (
       <motion.div
@@ -308,9 +385,14 @@ export default function BookDetailsContent() {
         className="flex min-h-[70vh] items-center justify-center px-4"
       >
         <div className="max-w-md rounded-2xl border border-base-300 bg-base-100 p-8 text-center shadow-sm">
-          <AlertCircle className="mx-auto mb-4 text-error" size={45} />
+          <AlertCircle
+            className="mx-auto mb-4 text-error"
+            size={45}
+          />
 
-          <h2 className="text-2xl font-bold">Book Not Found</h2>
+          <h2 className="text-2xl font-bold">
+            Book Not Found
+          </h2>
 
           <p className="mt-3 text-base-content/60">
             {error || "Sorry, this book could not be found."}
@@ -328,11 +410,16 @@ export default function BookDetailsContent() {
     );
   }
 
+  // =====================================
+  // MAIN UI
+  // =====================================
+
   return (
     <section className="min-h-screen overflow-hidden bg-base-200/40 px-4 py-10 md:px-8 md:py-14">
       <div className="mx-auto max-w-6xl">
 
         {/* Back Button */}
+
         <motion.div
           initial={{ opacity: 0, x: -25 }}
           animate={{ opacity: 1, x: 0 }}
@@ -348,9 +435,11 @@ export default function BookDetailsContent() {
         </motion.div>
 
         {/* Details Card */}
+
         <div className="grid overflow-hidden rounded-3xl border border-base-300 bg-base-100 shadow-sm md:grid-cols-2">
 
           {/* Book Image */}
+
           <motion.div
             variants={fadeLeft}
             initial="hidden"
@@ -366,7 +455,10 @@ export default function BookDetailsContent() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.9, ease: "easeOut" }}
+                transition={{
+                  duration: 0.9,
+                  ease: "easeOut",
+                }}
                 whileHover={{ scale: 1.035 }}
               />
             ) : (
@@ -378,6 +470,7 @@ export default function BookDetailsContent() {
           </motion.div>
 
           {/* Book Information */}
+
           <motion.div
             variants={fadeRight}
             initial="hidden"
@@ -387,6 +480,7 @@ export default function BookDetailsContent() {
           >
 
             {/* Category */}
+
             <motion.span
               variants={itemVariant}
               className="mb-5 w-fit rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary"
@@ -395,6 +489,7 @@ export default function BookDetailsContent() {
             </motion.span>
 
             {/* Title */}
+
             <motion.h1
               variants={itemVariant}
               className="text-3xl font-bold leading-tight text-base-content md:text-4xl"
@@ -403,6 +498,7 @@ export default function BookDetailsContent() {
             </motion.h1>
 
             {/* Author */}
+
             <motion.div
               variants={itemVariant}
               className="mt-5 flex items-center gap-3 text-base-content/60"
@@ -423,6 +519,7 @@ export default function BookDetailsContent() {
             />
 
             {/* Description */}
+
             <motion.div variants={itemVariant}>
               <h2 className="mb-3 text-lg font-bold">
                 About This Book
@@ -435,6 +532,7 @@ export default function BookDetailsContent() {
             </motion.div>
 
             {/* Book Information Cards */}
+
             <motion.div
               variants={staggerContainer}
               initial="hidden"
@@ -474,6 +572,7 @@ export default function BookDetailsContent() {
             </motion.div>
 
             {/* Date Added */}
+
             <motion.div
               variants={itemVariant}
               className="mt-6 flex items-center gap-2 text-sm text-base-content/50"
@@ -483,6 +582,7 @@ export default function BookDetailsContent() {
             </motion.div>
 
             {/* Availability Status */}
+
             <motion.div
               variants={itemVariant}
               className="mt-7"
@@ -501,6 +601,7 @@ export default function BookDetailsContent() {
             </motion.div>
 
             {/* Borrow Section */}
+
             <motion.div
               variants={fadeUp}
               initial="hidden"
@@ -509,7 +610,10 @@ export default function BookDetailsContent() {
               className="mt-7 rounded-2xl border border-base-300 bg-base-200/60 p-5"
             >
               <h2 className="mb-4 flex items-center gap-2 text-lg font-bold">
-                <BookMarked size={21} className="text-primary" />
+                <BookMarked
+                  size={21}
+                  className="text-primary"
+                />
                 Borrow This Book
               </h2>
 
@@ -525,7 +629,9 @@ export default function BookDetailsContent() {
                 id="borrowDays"
                 value={borrowDays}
                 onChange={(e) => setBorrowDays(e.target.value)}
-                disabled={borrowing || availableQuantity <= 0}
+                disabled={
+                  borrowing || availableQuantity <= 0
+                }
                 className="select select-bordered w-full bg-base-100"
               >
                 <option value="1">1 Day</option>
@@ -537,16 +643,22 @@ export default function BookDetailsContent() {
               </select>
 
               {/* Authentication Status */}
+
               {sessionLoading ? (
                 <p className="mt-3 flex items-center gap-2 text-sm text-base-content/60">
-                  <Loader2 size={15} className="animate-spin" />
+                  <Loader2
+                    size={15}
+                    className="animate-spin"
+                  />
                   Checking your account...
                 </p>
               ) : !user ? (
                 <p className="mt-3 text-sm text-warning">
                   Please{" "}
                   <Link
-                    href="/sign-in"
+                    href={`/login?callbackUrl=${encodeURIComponent(
+                      `/books/${book._id}`
+                    )}`}
                     className="font-bold underline"
                   >
                     Login
@@ -560,17 +672,17 @@ export default function BookDetailsContent() {
               )}
 
               {/* Borrow Button */}
+
               <motion.button
                 type="button"
                 onClick={handleBorrow}
                 disabled={
                   borrowing ||
                   availableQuantity <= 0 ||
-                  sessionLoading ||
-                  !user
+                  sessionLoading
                 }
                 whileHover={
-                  !borrowing && availableQuantity > 0 && user
+                  !borrowing && availableQuantity > 0
                     ? { scale: 1.025, y: -3 }
                     : {}
                 }
@@ -582,13 +694,15 @@ export default function BookDetailsContent() {
                 }}
                 className="group relative mt-5 flex w-full items-center justify-center gap-3 overflow-hidden rounded-xl bg-gradient-to-r from-emerald-900 via-emerald-800 to-emerald-700 px-6 py-4 text-base font-bold text-white shadow-lg shadow-emerald-900/20 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-900/30 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {/* Hover Shine Effect */}
                 <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/15 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
 
                 <span className="relative flex items-center justify-center gap-3">
                   {borrowing ? (
                     <>
-                      <Loader2 size={20} className="animate-spin" />
+                      <Loader2
+                        size={20}
+                        className="animate-spin"
+                      />
                       Borrowing Your Book...
                     </>
                   ) : availableQuantity <= 0 ? (
@@ -613,6 +727,7 @@ export default function BookDetailsContent() {
               </motion.button>
 
               {/* My Borrowed Books */}
+
               {user && (
                 <motion.div
                   whileHover={{ y: -2 }}
@@ -629,6 +744,7 @@ export default function BookDetailsContent() {
             </motion.div>
 
             {/* Explore More */}
+
             <motion.div
               variants={fadeUp}
               initial="hidden"

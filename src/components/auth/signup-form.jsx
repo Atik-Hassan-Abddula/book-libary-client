@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { registerUser, saveToken } from "@/lib/api";
+import { signIn } from "@/lib/auth-client";
 
 import {
   BookOpen,
@@ -91,7 +92,7 @@ export default function SignupForm() {
     if (error) setError("");
   };
 
-  // Handle Registration
+  // Handle Email Signup
   const handleSignup = async (e) => {
     e.preventDefault();
     setError("");
@@ -100,6 +101,11 @@ export default function SignupForm() {
 
     if (!name.trim()) {
       setError("Please enter your full name.");
+      return;
+    }
+
+    if (!email.trim()) {
+      setError("Please enter your email address.");
       return;
     }
 
@@ -145,7 +151,7 @@ export default function SignupForm() {
         );
       }
 
-      // Save JWT Token
+      // Save Custom JWT
       saveToken(result.token);
 
       // Reset Form
@@ -170,11 +176,26 @@ export default function SignupForm() {
     }
   };
 
-  // Google Signup (Not Configured Yet)
+  // Google Signup
   const handleGoogleSignup = async () => {
-    setError(
-      "Google signup is not configured yet. Please use email and password."
-    );
+    try {
+      setError("");
+      setGoogleLoading(true);
+
+      await signIn.social({
+        provider: "google",
+        callbackURL: "/",
+        errorCallbackURL: "/signup",
+      });
+    } catch (err) {
+      console.error("Google Signup Error:", err);
+
+      setError(
+        err.message || "Google signup failed. Please try again."
+      );
+
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -591,7 +612,7 @@ export default function SignupForm() {
               type="button"
               variant="outline"
               disabled={loading || googleLoading}
-              className="h-12 w-full rounded-xl border-gray-200 bg-white font-bold text-gray-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50"
+              className="h-12 w-full rounded-xl border-gray-200 bg-white font-bold text-gray-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50 disabled:opacity-60"
               onClick={handleGoogleSignup}
             >
               {googleLoading ? (

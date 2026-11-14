@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loginUser, saveToken } from "@/lib/api";
+import { signIn } from "@/lib/auth-client";
 
 import {
   BookOpen,
@@ -45,9 +46,13 @@ export default function SigninForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Handle Email Sign In
+  // =====================================
+  // EMAIL & PASSWORD SIGN IN
+  // =====================================
+
   const handleSignin = async (e) => {
     e.preventDefault();
+
     setError("");
     setLoading(true);
 
@@ -61,30 +66,53 @@ export default function SigninForm() {
         throw new Error("Login token was not received.");
       }
 
-      // Save JWT token
+      // Save Custom JWT Token
       saveToken(result.token);
 
       // Redirect after successful login
       router.push("/");
       router.refresh();
     } catch (err) {
-      setError(err.message || "Invalid email or password.");
+      console.error("Login Error:", err);
+
+      setError(
+        err.message || "Invalid email or password."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Google Sign In
+  // =====================================
+  // GOOGLE SOCIAL SIGN IN
+  // =====================================
+
   const handleGoogleSignin = async () => {
-    setError(
-      "Google sign-in is not configured yet. Please use email and password."
-    );
+    try {
+      setError("");
+      setGoogleLoading(true);
+
+      await signIn.social({
+        provider: "google",
+        callbackURL: "/",
+        errorCallbackURL: "/login",
+      });
+    } catch (err) {
+      console.error("Google Sign In Error:", err);
+
+      setError(
+        err.message || "Google sign-in failed. Please try again."
+      );
+
+      setGoogleLoading(false);
+    }
   };
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F5F7F2] px-4 py-8 sm:px-6 lg:py-12">
 
       {/* Background Decorations */}
+
       <div className="pointer-events-none absolute -left-40 -top-40 h-[500px] w-[500px] rounded-full bg-emerald-200/40 blur-[100px]" />
 
       <div className="pointer-events-none absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-amber-200/40 blur-[100px]" />
@@ -92,12 +120,15 @@ export default function SigninForm() {
       <div className="pointer-events-none absolute right-[12%] top-[15%] h-24 w-24 rounded-full border border-emerald-200/50" />
 
       {/* Main Container */}
+
       <div className="relative z-10 mx-auto grid w-full max-w-6xl overflow-hidden rounded-[32px] border border-white/80 bg-white shadow-[0_30px_100px_rgba(20,83,45,0.13)] lg:grid-cols-[0.95fr_1.05fr]">
 
         {/* LEFT BRANDING PANEL */}
+
         <section className="relative hidden flex-col justify-between overflow-hidden bg-[#103D29] p-10 text-white lg:flex xl:p-14">
 
           {/* Decorative Background */}
+
           <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full border border-white/10" />
 
           <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full border border-white/10" />
@@ -107,6 +138,7 @@ export default function SigninForm() {
           <div className="absolute right-12 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-[#D4A853]/10 blur-[80px]" />
 
           {/* Brand */}
+
           <div className="relative z-10 flex items-center gap-3">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#D4A853] text-[#14251B] shadow-xl shadow-black/20">
               <BookOpen size={30} strokeWidth={2.2} />
@@ -124,6 +156,7 @@ export default function SigninForm() {
           </div>
 
           {/* Main Content */}
+
           <div className="relative z-10 my-12">
 
             <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#D4A853]/30 bg-[#D4A853]/10 px-4 py-2 text-xs font-bold tracking-wide text-[#E9C77E]">
@@ -145,6 +178,7 @@ export default function SigninForm() {
             </p>
 
             {/* Feature Cards */}
+
             <div className="mt-10 space-y-4">
 
               <div className="group flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 transition-all duration-300 hover:border-[#D4A853]/40 hover:bg-white/[0.10]">
@@ -183,6 +217,7 @@ export default function SigninForm() {
           </div>
 
           {/* Bottom Footer */}
+
           <div className="relative z-10 border-t border-white/10 pt-6">
             <div className="flex items-center justify-between">
               <div>
@@ -205,11 +240,13 @@ export default function SigninForm() {
         </section>
 
         {/* RIGHT SIGN IN PANEL */}
+
         <Card className="w-full border-0 bg-white p-0 shadow-none">
 
           <CardHeader className="space-y-4 px-6 pb-5 pt-8 sm:px-10 sm:pt-12 lg:px-12">
 
             {/* Mobile Brand */}
+
             <div className="mb-3 flex items-center gap-3 lg:hidden">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#14532D] text-[#D4A853] shadow-lg">
                 <BookOpen size={26} />
@@ -227,12 +264,14 @@ export default function SigninForm() {
             </div>
 
             {/* Welcome Badge */}
+
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3.5 py-2 text-[10px] font-extrabold tracking-[0.12em] text-emerald-800">
               <Sparkles size={13} />
               WELCOME BACK
             </div>
 
             {/* Heading */}
+
             <div>
               <CardTitle className="text-3xl font-black tracking-tight text-[#14251B] sm:text-4xl">
                 Sign In
@@ -249,9 +288,12 @@ export default function SigninForm() {
 
           <CardContent className="px-6 pb-9 sm:px-10 lg:px-12 lg:pb-12">
 
+            {/* EMAIL LOGIN FORM */}
+
             <form onSubmit={handleSignin} className="space-y-5">
 
               {/* Email */}
+
               <div className="space-y-2">
                 <Label
                   htmlFor="email"
@@ -284,6 +326,7 @@ export default function SigninForm() {
               </div>
 
               {/* Password */}
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label
@@ -341,6 +384,7 @@ export default function SigninForm() {
               </div>
 
               {/* Error Message */}
+
               {error && (
                 <div
                   role="alert"
@@ -356,6 +400,7 @@ export default function SigninForm() {
               )}
 
               {/* Sign In Button */}
+
               <Button
                 type="submit"
                 disabled={loading || googleLoading}
@@ -377,6 +422,7 @@ export default function SigninForm() {
             </form>
 
             {/* Separator */}
+
             <div className="my-6 flex items-center gap-4">
               <Separator className="flex-1 bg-gray-200" />
 
@@ -387,7 +433,8 @@ export default function SigninForm() {
               <Separator className="flex-1 bg-gray-200" />
             </div>
 
-            {/* Google Sign In */}
+            {/* GOOGLE SIGN IN */}
+
             <Button
               type="button"
               variant="outline"
@@ -434,6 +481,7 @@ export default function SigninForm() {
             </Button>
 
             {/* Signup Link */}
+
             <p className="mt-7 text-center text-sm text-gray-500">
               Don&apos;t have an account?{" "}
               <Link
@@ -445,6 +493,7 @@ export default function SigninForm() {
             </p>
 
             {/* Bottom Note */}
+
             <div className="mt-6 flex items-center justify-center gap-2 border-t border-gray-100 pt-5">
               <ShieldCheck
                 size={14}

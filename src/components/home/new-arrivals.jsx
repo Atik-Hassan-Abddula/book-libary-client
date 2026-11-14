@@ -57,68 +57,7 @@ export default function NewArrivals() {
   // FETCH BOOKS FROM BACKEND
   // =====================================
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const fetchBooks = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        const response = await fetch(
-          `${API_URL}/books?limit=6`,
-          {
-            method: "GET",
-            cache: "no-store",
-            signal: controller.signal,
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to load books (${response.status})`
-          );
-        }
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(
-            result.message || "Could not load books."
-          );
-        }
-
-        // Backend returns { success: true, books: [] }
-        const latestBooks = Array.isArray(result.books)
-          ? result.books.slice(0, 6)
-          : [];
-
-        setBooks(latestBooks);
-      } catch (err) {
-        if (err.name === "AbortError") return;
-
-        console.error("New arrivals error:", err);
-
-        setError(
-          "Unable to load new arrivals. Please try again."
-        );
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchBooks();
-
-    return () => controller.abort();
-  }, []);
-
-  // =====================================
-  // RETRY FETCH
-  // =====================================
-
-  const handleRetry = async () => {
+  const fetchBooks = async (signal) => {
     try {
       setLoading(true);
       setError("");
@@ -126,12 +65,16 @@ export default function NewArrivals() {
       const response = await fetch(
         `${API_URL}/books?limit=6`,
         {
+          method: "GET",
           cache: "no-store",
+          signal,
         }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to load books.");
+        throw new Error(
+          `Failed to load books (${response.status})`
+        );
       }
 
       const result = await response.json();
@@ -142,19 +85,44 @@ export default function NewArrivals() {
         );
       }
 
-      setBooks(
-        Array.isArray(result.books)
-          ? result.books.slice(0, 6)
-          : []
-      );
+      const latestBooks = Array.isArray(result.books)
+        ? result.books.slice(0, 6)
+        : [];
+
+      setBooks(latestBooks);
     } catch (err) {
-      console.error("Retry error:", err);
+      if (err.name === "AbortError") return;
+
+      console.error("New arrivals error:", err);
+
       setError(
         "Unable to load new arrivals. Please try again."
       );
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
+  };
+
+  // =====================================
+  // INITIAL FETCH
+  // =====================================
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchBooks(controller.signal);
+
+    return () => controller.abort();
+  }, []);
+
+  // =====================================
+  // RETRY FETCH
+  // =====================================
+
+  const handleRetry = () => {
+    fetchBooks();
   };
 
   // =====================================
@@ -305,6 +273,7 @@ export default function NewArrivals() {
                   </p>
 
                   <div className="mt-5 border-t border-base-300 pt-4">
+
                     {/* View Details Button */}
 
                     <motion.div
@@ -336,6 +305,7 @@ export default function NewArrivals() {
                         </motion.span>
                       </Link>
                     </motion.div>
+
                   </div>
                 </div>
               </motion.article>
