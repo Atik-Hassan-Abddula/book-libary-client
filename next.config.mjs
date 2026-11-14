@@ -5,16 +5,16 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "imgs.search.brave.com",
+        hostname: "**",
       },
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-      },
-      {
-        protocol: "https",
-        hostname: "covers.openlibrary.org",
-      },
+      // {
+      //   protocol: "https",
+      //   hostname: "images.unsplash.com",
+      // },
+      // {
+      //   protocol: "https",
+      //   hostname: "covers.openlibrary.org",
+      // },
     ],
   },
 

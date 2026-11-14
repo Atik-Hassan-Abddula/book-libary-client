@@ -1,9 +1,9 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { authClient } from "@/lib/auth-client";
 
 import {
   UserRound,
@@ -14,14 +14,79 @@ import {
   BookOpen,
 } from "lucide-react";
 
+import {
+  getToken,
+  getCurrentUser,
+  removeToken,
+} from "@/lib/api";
+
 export default function ProfilePage() {
   const router = useRouter();
 
-  const { data: session, isPending } = authClient.useSession();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const user = session?.user;
+  useEffect(() => {
+    let active = true;
 
-  if (isPending) {
+    const loadProfile = async () => {
+      try {
+        const token = getToken();
+
+        if (!token) {
+          if (active) {
+            setError("You need to login to view your profile.");
+            setLoading(false);
+          }
+          return;
+        }
+
+        const result = await getCurrentUser();
+
+        console.log("Profile API Response:", result);
+
+        if (active && result?.user) {
+          setUser(result.user);
+          setError("");
+        } else if (active) {
+          setUser(null);
+          setError("User information was not found.");
+        }
+      } catch (err) {
+        console.error("Profile Error:", err);
+
+        const message = err.message?.toLowerCase() || "";
+
+        if (
+          message.includes("401") ||
+          message.includes("unauthorized") ||
+          message.includes("invalid token") ||
+          message.includes("expired token")
+        ) {
+          removeToken();
+          if (active) {
+            setUser(null);
+            setError("Your session has expired. Please login again.");
+          }
+        } else if (active) {
+          setError("Unable to load your profile. Please try again.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadProfile();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (loading) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center">
         <Loader2 className="h-9 w-9 animate-spin text-emerald-800" />
@@ -39,7 +104,7 @@ export default function ProfilePage() {
         </h1>
 
         <p className="mt-2 text-sm text-gray-500">
-          You need to login to view your profile.
+          {error || "You need to login to view your profile."}
         </p>
 
         <button
@@ -161,15 +226,11 @@ export default function ProfilePage() {
 
               <div className="flex items-center justify-between gap-3 border-b border-gray-200 py-3">
                 <span className="text-sm text-gray-500">
-                  Email Verified
+                  Email Verification
                 </span>
 
-                <span className={`text-xs font-bold ${
-                  user.emailVerified
-                    ? "text-emerald-700"
-                    : "text-amber-700"
-                }`}>
-                  {user.emailVerified ? "Verified" : "Not Verified"}
+                <span className="text-xs font-bold text-gray-500">
+                  Not available
                 </span>
               </div>
 
@@ -179,7 +240,7 @@ export default function ProfilePage() {
                 </span>
 
                 <span className="max-w-[55%] break-all text-right text-xs font-medium text-gray-700">
-                  {user.id}
+                  {user._id || user.id || "Not available"}
                 </span>
               </div>
             </div>

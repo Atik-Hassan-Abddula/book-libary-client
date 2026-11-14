@@ -13,6 +13,7 @@ import {
   Clock3,
   LibraryBig,
   RefreshCw,
+  ImageOff,
 } from "lucide-react";
 
 import { toast } from "react-toastify";
@@ -86,9 +87,7 @@ export default function MyBorrowsPage() {
         );
       }
 
-      setBorrowedBooks(
-        result.data || result.borrows || []
-      );
+      setBorrowedBooks(result.borrows || result.data || []);
     } catch (error) {
       console.error("Fetch Borrowed Books Error:", error);
 
@@ -327,7 +326,6 @@ export default function MyBorrowsPage() {
             </p>
           </div>
         ) : borrowedBooks.length === 0 ? (
-
           /* EMPTY STATE */
 
           <div className="rounded-3xl border border-[#E8E2D5] bg-white px-6 py-16 text-center shadow-sm">
@@ -353,7 +351,6 @@ export default function MyBorrowsPage() {
             </Link>
           </div>
         ) : (
-
           /* BORROWED BOOKS GRID */
 
           <div>
@@ -369,22 +366,21 @@ export default function MyBorrowsPage() {
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {borrowedBooks.map((book) => {
-                // Backend field: dueDate
                 const isOverdue =
                   book.dueDate &&
                   new Date(book.dueDate).getTime() <
                     new Date().setHours(0, 0, 0, 0);
 
-                // Backend field: bookImage
-                const imageSrc =
+                // Backend stores the image in bookImage.
+                const imageSrc = (
                   book.bookImage ||
                   book.image ||
                   book.imageUrl ||
                   book.book?.image ||
                   book.book?.imageUrl ||
-                  "";
+                  ""
+                ).trim();
 
-                // Backend field: bookTitle
                 const bookTitle =
                   book.bookTitle ||
                   book.title ||
@@ -402,131 +398,18 @@ export default function MyBorrowsPage() {
                   "Book";
 
                 return (
-                  <article
+                  <BorrowedBookCard
                     key={book._id}
-                    className="group overflow-hidden rounded-2xl border border-[#E8E2D5] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
-                  >
-                    {/* BOOK IMAGE */}
-
-                    <div className="relative h-64 overflow-hidden bg-[#F0EDE4]">
-                      {imageSrc ? (
-                        <img
-                          src={imageSrc}
-                          alt={bookTitle}
-                          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                          onError={(event) => {
-                            event.currentTarget.style.display = "none";
-
-                            const fallback =
-                              event.currentTarget.parentElement.querySelector(
-                                ".book-image-fallback"
-                              );
-
-                            if (fallback) {
-                              fallback.style.display = "flex";
-                            }
-                          }}
-                        />
-                      ) : null}
-
-                      <div
-                        className="book-image-fallback absolute inset-0 items-center justify-center"
-                        style={{
-                          display: imageSrc ? "none" : "flex",
-                        }}
-                      >
-                        <BookOpen
-                          size={55}
-                          className="text-[#14532D]"
-                        />
-                      </div>
-
-                      <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-2 text-xs font-bold text-[#14532D] shadow-sm">
-                        {bookCategory}
-                      </span>
-                    </div>
-
-                    {/* BOOK INFORMATION */}
-
-                    <div className="p-5">
-                      <h3 className="line-clamp-1 text-xl font-black text-[#14532D]">
-                        {bookTitle}
-                      </h3>
-
-                      <p className="mt-2 text-sm text-gray-500">
-                        By {bookAuthor}
-                      </p>
-
-                      {/* DATE INFORMATION */}
-
-                      <div className="mt-5 space-y-3 rounded-xl bg-[#F7F5EF] p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="flex items-center gap-2 text-xs font-medium text-gray-500">
-                            <CalendarDays size={15} />
-                            Borrowed
-                          </span>
-
-                          <span className="text-xs font-bold text-[#14532D]">
-                            {formatDate(book.borrowedAt)}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="flex items-center gap-2 text-xs font-medium text-gray-500">
-                            <Clock3 size={15} />
-                            Return Date
-                          </span>
-
-                          <span
-                            className={`text-xs font-bold ${
-                              isOverdue
-                                ? "text-red-600"
-                                : "text-[#14532D]"
-                            }`}
-                          >
-                            {formatDate(book.dueDate)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* STATUS */}
-
-                      <div className="mt-4">
-                        {isOverdue ? (
-                          <span className="inline-flex rounded-full bg-red-100 px-3 py-1.5 text-xs font-bold text-red-600">
-                            Overdue
-                          </span>
-                        ) : (
-                          <span className="inline-flex rounded-full bg-green-100 px-3 py-1.5 text-xs font-bold text-green-700">
-                            Currently Borrowed
-                          </span>
-                        )}
-                      </div>
-
-                      {/* RETURN BUTTON */}
-
-                      <button
-                        onClick={() => handleReturn(book._id)}
-                        disabled={returningId === book._id}
-                        className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#14532D] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#103F25] disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {returningId === book._id ? (
-                          <>
-                            <LoaderCircle
-                              size={18}
-                              className="animate-spin"
-                            />
-                            Returning Book...
-                          </>
-                        ) : (
-                          <>
-                            <RotateCcw size={18} />
-                            Return Book
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </article>
+                    book={book}
+                    imageSrc={imageSrc}
+                    bookTitle={bookTitle}
+                    bookAuthor={bookAuthor}
+                    bookCategory={bookCategory}
+                    isOverdue={isOverdue}
+                    formatDate={formatDate}
+                    returningId={returningId}
+                    handleReturn={handleReturn}
+                  />
                 );
               })}
             </div>
@@ -534,5 +417,141 @@ export default function MyBorrowsPage() {
         )}
       </div>
     </main>
+  );
+}
+
+// =====================================
+// BORROWED BOOK CARD
+// =====================================
+
+function BorrowedBookCard({
+  book,
+  imageSrc,
+  bookTitle,
+  bookAuthor,
+  bookCategory,
+  isOverdue,
+  formatDate,
+  returningId,
+  handleReturn,
+}) {
+  const [imageError, setImageError] = useState(false);
+
+  return (
+    <article className="group overflow-hidden rounded-2xl border border-[#E8E2D5] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+
+      {/* BOOK IMAGE */}
+
+      <div className="relative flex h-64 items-center justify-center overflow-hidden bg-[#F0EDE4]">
+        {imageSrc && !imageError ? (
+          <img
+            src={imageSrc}
+            alt={bookTitle}
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#F0EDE4]">
+            {imageSrc ? (
+              <ImageOff
+                size={48}
+                className="text-[#14532D]/50"
+              />
+            ) : (
+              <BookOpen
+                size={55}
+                className="text-[#14532D]"
+              />
+            )}
+
+            <span className="text-xs font-medium text-gray-500">
+              Book cover unavailable
+            </span>
+          </div>
+        )}
+
+        <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-2 text-xs font-bold text-[#14532D] shadow-sm">
+          {bookCategory}
+        </span>
+      </div>
+
+      {/* BOOK INFORMATION */}
+
+      <div className="p-5">
+        <h3 className="line-clamp-1 text-xl font-black text-[#14532D]">
+          {bookTitle}
+        </h3>
+
+        <p className="mt-2 text-sm text-gray-500">
+          By {bookAuthor}
+        </p>
+
+        {/* DATE INFORMATION */}
+
+        <div className="mt-5 space-y-3 rounded-xl bg-[#F7F5EF] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-xs font-medium text-gray-500">
+              <CalendarDays size={15} />
+              Borrowed
+            </span>
+
+            <span className="text-xs font-bold text-[#14532D]">
+              {formatDate(book.borrowedAt)}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-xs font-medium text-gray-500">
+              <Clock3 size={15} />
+              Return Date
+            </span>
+
+            <span
+              className={`text-xs font-bold ${
+                isOverdue ? "text-red-600" : "text-[#14532D]"
+              }`}
+            >
+              {formatDate(book.dueDate)}
+            </span>
+          </div>
+        </div>
+
+        {/* STATUS */}
+
+        <div className="mt-4">
+          {isOverdue ? (
+            <span className="inline-flex rounded-full bg-red-100 px-3 py-1.5 text-xs font-bold text-red-600">
+              Overdue
+            </span>
+          ) : (
+            <span className="inline-flex rounded-full bg-green-100 px-3 py-1.5 text-xs font-bold text-green-700">
+              Currently Borrowed
+            </span>
+          )}
+        </div>
+
+        {/* RETURN BUTTON */}
+
+        <button
+          onClick={() => handleReturn(book._id)}
+          disabled={returningId === book._id}
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#14532D] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#103F25] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {returningId === book._id ? (
+            <>
+              <LoaderCircle size={18} className="animate-spin" />
+              Returning Book...
+            </>
+          ) : (
+            <>
+              <RotateCcw size={18} />
+              Return Book
+            </>
+          )}
+        </button>
+      </div>
+    </article>
   );
 }
