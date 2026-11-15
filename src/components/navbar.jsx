@@ -1,9 +1,10 @@
+
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+
 import {
   BookOpen,
   Menu,
@@ -16,6 +17,7 @@ import {
   ChevronDown,
   Loader2,
 } from "lucide-react";
+
 import { toast } from "react-toastify";
 
 import {
@@ -53,21 +55,29 @@ export default function Navbar() {
 
       const googleUser = sessionData?.user || null;
 
-      // Custom JWT Login
+      // Check Custom JWT Authentication
       if (getToken()) {
         try {
           const result = await getCurrentUser();
 
           if (isMounted) {
-            setUser(result.user || googleUser);
+            setUser(result?.user || googleUser);
           }
         } catch (error) {
           console.error("JWT Authentication Error:", error);
 
-          removeToken();
+          // Remove token only if authentication is invalid.
+          if (error.status === 401 || error.status === 403) {
+            removeToken();
 
-          if (isMounted) {
-            setUser(googleUser);
+            if (isMounted) {
+              setUser(googleUser);
+            }
+          } else {
+            // Keep token during server or network errors.
+            if (isMounted) {
+              setUser((currentUser) => currentUser || googleUser);
+            }
           }
         } finally {
           if (isMounted) {
@@ -78,7 +88,7 @@ export default function Navbar() {
         return;
       }
 
-      // Google Login
+      // Google Authentication
       if (isMounted) {
         setUser(googleUser);
         setIsPending(false);
@@ -103,8 +113,10 @@ export default function Navbar() {
     try {
       setLoggingOut(true);
 
+      // Remove custom JWT
       removeToken();
 
+      // Sign out from Better Auth
       await signOut();
 
       setUser(null);
@@ -118,11 +130,15 @@ export default function Navbar() {
     } catch (error) {
       console.error("Logout Error:", error);
 
+      // Always clear local authentication.
       removeToken();
+
       setUser(null);
+      setProfileOpen(false);
+      setMobileMenuOpen(false);
 
       toast.error(
-        error.message || "Logout failed. Please try again."
+        error?.message || "Logout failed. Please try again."
       );
 
       router.replace("/login");
@@ -142,7 +158,7 @@ export default function Navbar() {
   };
 
   // =====================================
-  // AVATAR
+  // USER AVATAR
   // =====================================
 
   const renderUserAvatar = (size = "h-10 w-10") => {
@@ -153,26 +169,37 @@ export default function Navbar() {
       user?.avatar ||
       "";
 
-    if (imageUrl) {
-      return (
-        <img
-          src={imageUrl}
-          alt={user?.name || "User"}
-          referrerPolicy="no-referrer"
-          className={`${size} shrink-0 rounded-full border-2 border-white object-cover shadow-sm`}
-          onError={(event) => {
-            event.currentTarget.style.display = "none";
-            event.currentTarget.nextElementSibling?.classList.remove("hidden");
-          }}
-        />
-      );
-    }
-
-    return (
+    const fallback = (
       <div
         className={`${size} flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-teal-800 font-bold text-white shadow-sm`}
       >
         {user?.name?.charAt(0)?.toUpperCase() || "U"}
+      </div>
+    );
+
+    if (!imageUrl) {
+      return fallback;
+    }
+
+    return (
+      <div className={`${size} relative shrink-0`}>
+        <img
+          src={imageUrl}
+          alt={user?.name || "User"}
+          referrerPolicy="no-referrer"
+          className={`${size} rounded-full border-2 border-white object-cover shadow-sm`}
+          onError={(event) => {
+            event.currentTarget.classList.add("hidden");
+
+            event.currentTarget.nextElementSibling?.classList.remove(
+              "hidden"
+            );
+          }}
+        />
+
+        <div className="hidden">
+          {fallback}
+        </div>
       </div>
     );
   };
@@ -213,9 +240,19 @@ export default function Navbar() {
       : []),
   ];
 
+  // =====================================
+  // ACTIVE NAVIGATION
+  // =====================================
+
   const isActive = (href) => {
-    if (href === "/") return pathname === "/";
-    return pathname === href || pathname.startsWith(`${href}/`);
+    if (href === "/") {
+      return pathname === "/";
+    }
+
+    return (
+      pathname === href ||
+      pathname.startsWith(`${href}/`)
+    );
   };
 
   // =====================================
@@ -224,9 +261,11 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-emerald-100 bg-white/95 shadow-sm backdrop-blur-md">
+
       <nav className="mx-auto flex h-18 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
 
         {/* LOGO */}
+
         <Link
           href="/"
           onClick={closeMenus}
@@ -240,6 +279,7 @@ export default function Navbar() {
             <h1 className="text-xl font-extrabold tracking-tight text-gray-900">
               Book<span className="text-emerald-700">Nook</span>
             </h1>
+
             <p className="hidden text-[10px] font-medium tracking-widest text-gray-500 sm:block">
               YOUR PERSONAL LIBRARY
             </p>
@@ -247,6 +287,7 @@ export default function Navbar() {
         </Link>
 
         {/* DESKTOP NAVIGATION */}
+
         <div className="hidden items-center gap-1 lg:flex">
           {navLinks.map((link) => {
             const Icon = link.icon;
@@ -269,11 +310,17 @@ export default function Navbar() {
         </div>
 
         {/* DESKTOP AUTH */}
+
         <div className="hidden items-center gap-3 lg:flex">
+
           {isPending ? (
-            <Loader2 className="animate-spin text-emerald-700" size={22} />
+            <Loader2
+              className="animate-spin text-emerald-700"
+              size={22}
+            />
           ) : user ? (
             <div className="relative">
+
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 rounded-full border border-gray-200 bg-white p-1.5 pr-3 transition hover:border-emerald-300 hover:shadow-sm"
@@ -292,19 +339,25 @@ export default function Navbar() {
                 />
               </button>
 
+              {/* PROFILE DROPDOWN */}
+
               {profileOpen && (
                 <div className="absolute right-0 top-14 z-50 w-60 overflow-hidden rounded-xl border border-gray-100 bg-white p-2 shadow-xl">
+
                   <div className="flex items-center gap-3 border-b border-gray-100 px-3 py-3">
+
                     {renderUserAvatar("h-10 w-10")}
 
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-gray-800">
                         {user.name || "User"}
                       </p>
+
                       <p className="truncate text-xs text-gray-500">
                         {user.email}
                       </p>
                     </div>
+
                   </div>
 
                   <Link
@@ -322,14 +375,22 @@ export default function Navbar() {
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                   >
                     {loggingOut ? (
-                      <Loader2 size={17} className="animate-spin" />
+                      <Loader2
+                        size={17}
+                        className="animate-spin"
+                      />
                     ) : (
                       <LogOut size={17} />
                     )}
-                    {loggingOut ? "Logging out..." : "Sign Out"}
+
+                    {loggingOut
+                      ? "Logging out..."
+                      : "Sign Out"}
                   </button>
+
                 </div>
               )}
+
             </div>
           ) : (
             <>
@@ -348,22 +409,34 @@ export default function Navbar() {
               </Link>
             </>
           )}
+
         </div>
 
         {/* MOBILE MENU BUTTON */}
+
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-700 transition hover:bg-emerald-50 lg:hidden"
           aria-label="Toggle navigation menu"
+          aria-expanded={mobileMenuOpen}
         >
-          {mobileMenuOpen ? <X size={25} /> : <Menu size={25} />}
+          {mobileMenuOpen ? (
+            <X size={25} />
+          ) : (
+            <Menu size={25} />
+          )}
         </button>
+
       </nav>
 
       {/* MOBILE MENU */}
+
       {mobileMenuOpen && (
         <div className="absolute left-0 top-full w-full border-t border-gray-100 bg-white px-4 pb-5 pt-3 shadow-lg lg:hidden">
+
           <div className="mx-auto max-w-7xl space-y-1">
+
+            {/* MOBILE NAVIGATION */}
 
             {navLinks.map((link) => {
               const Icon = link.icon;
@@ -387,12 +460,17 @@ export default function Navbar() {
 
             <div className="my-3 border-t border-gray-100" />
 
+            {/* MOBILE AUTH */}
+
             {isPending ? (
               <div className="flex justify-center py-4">
                 <Loader2 className="animate-spin text-emerald-700" />
               </div>
             ) : user ? (
               <>
+
+                {/* MOBILE PROFILE */}
+
                 <Link
                   href="/profile"
                   onClick={closeMenus}
@@ -404,13 +482,19 @@ export default function Navbar() {
                     <p className="truncate text-sm font-bold text-gray-800">
                       {user.name || "My Account"}
                     </p>
+
                     <p className="truncate text-xs text-gray-500">
                       {user.email}
                     </p>
                   </div>
 
-                  <UserRound size={19} className="text-gray-500" />
+                  <UserRound
+                    size={19}
+                    className="text-gray-500"
+                  />
                 </Link>
+
+                {/* MOBILE LOGOUT */}
 
                 <button
                   onClick={handleSignOut}
@@ -418,15 +502,23 @@ export default function Navbar() {
                   className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                 >
                   {loggingOut ? (
-                    <Loader2 size={19} className="animate-spin" />
+                    <Loader2
+                      size={19}
+                      className="animate-spin"
+                    />
                   ) : (
                     <LogOut size={19} />
                   )}
-                  {loggingOut ? "Logging out..." : "Sign Out"}
+
+                  {loggingOut
+                    ? "Logging out..."
+                    : "Sign Out"}
                 </button>
+
               </>
             ) : (
               <div className="grid grid-cols-2 gap-3 pt-2">
+
                 <Link
                   href="/login"
                   onClick={closeMenus}
@@ -442,11 +534,15 @@ export default function Navbar() {
                 >
                   Sign Up
                 </Link>
+
               </div>
             )}
+
           </div>
+
         </div>
       )}
+
     </header>
   );
 }
