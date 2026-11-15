@@ -62,65 +62,41 @@ export default function NewArrivals() {
       setLoading(true);
       setError("");
 
-      const response = await fetch(`${API_URL}/books`, {
-        method: "GET",
-        cache: "no-store",
-        signal,
-        headers: {
-          Accept: "application/json",
-        },
-      });
+      const response = await fetch(
+        `${API_URL}/books?limit=6`,
+        {
+          method: "GET",
+          cache: "no-store",
+          signal,
+        }
+      );
 
       if (!response.ok) {
         throw new Error(
-          `Failed to load books. Status: ${response.status}`
+          `Failed to load books (${response.status})`
         );
       }
 
       const result = await response.json();
 
-      console.log("BookNook API Response:", result);
-
-      // Support different backend response formats
-      let booksData = [];
-
-      if (Array.isArray(result)) {
-        booksData = result;
-      } else if (Array.isArray(result.books)) {
-        booksData = result.books;
-      } else if (Array.isArray(result.data)) {
-        booksData = result.data;
-      } else if (Array.isArray(result.data?.books)) {
-        booksData = result.data.books;
-      } else if (Array.isArray(result.results)) {
-        booksData = result.results;
-      }
-
-      // Check backend error response
-      if (
-        result.success === false &&
-        booksData.length === 0
-      ) {
+      if (!result.success) {
         throw new Error(
-          result.message || "Backend could not return books."
+          result.message || "Could not load books."
         );
       }
 
-      // Validate books data
-      if (!Array.isArray(booksData)) {
-        throw new Error(
-          "Invalid books data received from backend."
-        );
-      }
+      const latestBooks = Array.isArray(result.books)
+        ? result.books.slice(0, 6)
+        : [];
 
-      setBooks(booksData.slice(0, 6));
+      setBooks(latestBooks);
     } catch (err) {
       if (err.name === "AbortError") return;
 
       console.error("New arrivals error:", err);
 
       setError(
-        err.message || "Unable to load new arrivals."
+        "Unable to load new arrivals. Please try again."
       );
     } finally {
       if (!signal?.aborted) {
@@ -241,9 +217,9 @@ export default function NewArrivals() {
             viewport={{ once: true, amount: 0.1 }}
             className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
           >
-            {books.map((book, index) => (
+            {books.map((book) => (
               <motion.article
-                key={book._id || book.id || index}
+                key={book._id}
                 variants={cardVariants}
                 whileHover={{
                   y: -7,
@@ -289,7 +265,7 @@ export default function NewArrivals() {
 
                 <div className="p-5">
                   <h3 className="line-clamp-1 text-xl font-bold text-base-content">
-                    {book.title || "Untitled Book"}
+                    {book.title}
                   </h3>
 
                   <p className="mt-2 text-sm text-base-content/60">
@@ -313,7 +289,7 @@ export default function NewArrivals() {
                       }}
                     >
                       <Link
-                        href={`/books/${book._id || book.id}`}
+                        href={`/books/${book._id}`}
                         className="group/btn relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-lg bg-[#14532D] px-4 py-3 text-sm font-semibold text-white shadow-md shadow-green-900/10 transition-all duration-300 hover:bg-[#D4A853] hover:text-[#14251B] hover:shadow-lg"
                       >
                         <span className="relative z-10">
